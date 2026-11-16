@@ -34,8 +34,8 @@ public static class CursorSistema
     /// <summary>Gera um .cur 32x32 com uma barra vertical branca (contorno escuro de 1 px) centralizada no hotspot.</summary>
     public static byte[] GerarCurBarra(int alturaPx = BarraAlturaPadrao, int larguraPx = BarraLarguraPadrao)
     {
-        alturaPx = Math.Clamp(alturaPx, 4, 28);
-        larguraPx = Math.Clamp(larguraPx, 1, 8);
+        alturaPx = Math.Clamp(alturaPx, 8, 28);
+        larguraPx = Math.Clamp(larguraPx, 1, 6);
         int x0 = Hotspot - larguraPx / 2, x1 = x0 + larguraPx; // [x0, x1)
         int y0 = Hotspot - alturaPx / 2, y1 = y0 + alturaPx;   // [y0, y1)
         return Montar((x, y) =>
@@ -132,7 +132,8 @@ public static class CursorSistema
     }
 
     /// <summary>Troca os cursores normal e mão pela bolinha (e a I-beam pela barra, se pedido).</summary>
-    public static void Aplicar(int diametro = DiametroPadrao, bool barraEmTexto = false)
+    public static void Aplicar(int diametro = DiametroPadrao, bool barraEmTexto = false,
+        int alturaBarra = BarraAlturaPadrao, int larguraBarra = BarraLarguraPadrao)
     {
         try
         {
@@ -157,7 +158,7 @@ public static class CursorSistema
             if (barraEmTexto)
             {
                 string barra = CaminhoBarra;
-                File.WriteAllBytes(barra, GerarCurBarra());
+                File.WriteAllBytes(barra, GerarCurBarra(alturaBarra, larguraBarra));
                 // Outro LoadCursorFromFile: o SetSystemCursor destrói o handle recebido.
                 IntPtr hb = Nativo.LoadCursorFromFile(barra);
                 if (hb != IntPtr.Zero)

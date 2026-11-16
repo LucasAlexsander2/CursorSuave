@@ -159,3 +159,22 @@
 4. Sair do app: todos os cursores do Windows voltam ao original.
 
 **Resultado:** build com 0 erros e 0 avisos; 74 testes passando (12 novos: barra 3, EstadoAnel 3, Configuracao 6). Desvios: o CursorSuave.exe estava rodando, então build e testes usaram `-p:OutDir=C:\Temp\cs_out\` (o bin não foi tocado). `EstadoAnel` ganhou `RealceLink`/`OpacidadeBorda` e o parâmetro `fundoEmLinks`; o realce da borda vale mesmo com "Fundo leve" desligado (antes `sobreLink` já vinha filtrado por `FundoEmLinks`). Slider "Opacidade em clicáveis" e caixa "Mostrar barra em campos de texto" entram na prévia e no Cancelar. Ao desligar a barra, o app chama `Restaurar()` e reaplica a bolinha (um `LoadCursorFromFile` por cursor; `EhMao` é refeito no `Aplicar`). Não executei o app.
+
+## Ajuste 3a.3 — barra de texto com altura e largura ajustáveis (16/11/2026)
+**Pedido do Lucas:** poder definir a altura e a largura da barra que aparece em campos de texto.
+
+**Decisões:**
+- **Novos campos na configuração:**
+  - `AlturaBarra`: int, de 8 a 28 px, padrão 18. O máximo é 28 porque o `.cur` tem 32×32 e é preciso deixar espaço para o contorno de 1 px.
+  - `LarguraBarra`: int, de 1 a 6 px, padrão 2.
+- **Janela de Configurações:** dois sliders, "Altura da barra" e "Largura da barra", que mostram "N px". Ficam logo abaixo da caixa "Mostrar barra em campos de texto" e só ficam habilitados quando ela está marcada.
+- **Mudança ao vivo:** quando a altura ou a largura mudam, `barra.cur` é gerado de novo com `GerarCurBarra(AlturaBarra, LarguraBarra)` e os cursores são reaplicados, igual ao que já acontece com o tamanho da bolinha. O Cancelar volta aos valores originais.
+- **Larguras ímpares:** a barra fica centrada no hotspot (16,16) com um deslocamento de no máximo meio pixel. Isso é aceito.
+
+**Testes unitários:**
+- `GerarCurBarra` com os extremos (8×1 e 28×6): o cabeçalho é válido, o hotspot fica em (16,16), o pixel central é opaco e a altura da área opaca bate com a pedida, com tolerância de ±1 px de contorno.
+- `Configuracao`: os padrões, as faixas e a ida e volta dos dois campos, e um JSON antigo sem os campos usa o padrão.
+
+**Roteiro (Lucas):** mexer nos dois sliders com o mouse sobre um campo de texto. A barra muda na hora, e depois de Salvar continua igual ao reabrir o app.
+
+Resultado: build 0 erros e 0 avisos; 81 testes aprovados (novos: extremos da barra e campos AlturaBarra/LarguraBarra). Desvio: nenhum; sliders de altura e largura ficam desabilitados com a caixa desmarcada. Roteiro na tela ainda com o Lucas.

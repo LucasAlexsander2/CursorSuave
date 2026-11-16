@@ -153,3 +153,37 @@ public class ConfiguracaoLinksBarraTests
         Assert.False(l.BarraEmTexto);
     }
 }
+
+public class ConfiguracaoBarraTamanhoTests
+{
+    [Fact]
+    public void Padroes_EJsonAntigo()
+    {
+        var c = new Configuracao();
+        Assert.Equal(18, c.AlturaBarra);
+        Assert.Equal(2, c.LarguraBarra);
+        var antigo = Configuracao.Carregar("{\"TamanhoAnel\":30}", out _);
+        Assert.Equal(18, antigo.AlturaBarra);
+        Assert.Equal(2, antigo.LarguraBarra);
+    }
+
+    [Theory]
+    [InlineData(1, 0, 8, 1)]
+    [InlineData(99, 99, 28, 6)]
+    [InlineData(12, 4, 12, 4)]
+    public void Faixas(int altura, int largura, int esperadaAltura, int esperadaLargura)
+    {
+        var c = new Configuracao { AlturaBarra = altura, LarguraBarra = largura }.Validar();
+        Assert.Equal(esperadaAltura, c.AlturaBarra);
+        Assert.Equal(esperadaLargura, c.LarguraBarra);
+    }
+
+    [Fact]
+    public void IdaEVolta()
+    {
+        var l = Configuracao.Carregar(new Configuracao { AlturaBarra = 24, LarguraBarra = 5 }.Salvar(), out bool corrompido);
+        Assert.False(corrompido);
+        Assert.Equal(24, l.AlturaBarra);
+        Assert.Equal(5, l.LarguraBarra);
+    }
+}

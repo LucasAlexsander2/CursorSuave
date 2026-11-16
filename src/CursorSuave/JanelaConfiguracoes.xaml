@@ -46,6 +46,18 @@
             <CheckBox x:Name="ChkDentro" Content="Manter a bolinha dentro do anel" Margin="0,2"/>
             <CheckBox x:Name="ChkFundo" Content="Fundo leve ao passar sobre links" Margin="0,2"/>
             <CheckBox x:Name="ChkBarra" Content="Mostrar barra em campos de texto" Margin="0,2"/>
+            <Grid Margin="16,2,0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="56"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Altura da barra" VerticalAlignment="Center"/>
+                <Slider x:Name="SlAlturaBarra" Grid.Row="0" Grid.Column="1" Minimum="8" Maximum="28" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,4"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=SlAlturaBarra, StringFormat={}{0:0} px}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Text="Largura da barra" VerticalAlignment="Center"/>
+                <Slider x:Name="SlLarguraBarra" Grid.Row="1" Grid.Column="1" Minimum="1" Maximum="6" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=SlLarguraBarra, StringFormat={}{0:0} px}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
             <CheckBox x:Name="ChkClique" Content="Encolher ao clicar" Margin="0,2"/>
             <CheckBox x:Name="ChkParado" Content="Apagar quando o mouse fica parado" Margin="0,2"/>
             <CheckBox x:Name="ChkTelaCheia" Content="Pausar em tela cheia" Margin="0,2"/>

@@ -40,6 +40,9 @@ public partial class JanelaConfiguracoes : Window
         SlOpac.Value = original.Opacidade;
         SlOpacLinks.Value = original.OpacidadeEmLinks;
         ChkBarra.IsChecked = original.BarraEmTexto;
+        SlAlturaBarra.Value = original.AlturaBarra;
+        SlLarguraBarra.Value = original.LarguraBarra;
+        AtualizarBarra();
         SlSuav.Value = original.AtrasoMs;
         ChkDentro.IsChecked = original.ManterBolinhaDentro;
         SlParado.Value = original.SegundosParado;
@@ -69,13 +72,17 @@ public partial class JanelaConfiguracoes : Window
             Amostras.Children.Add(botao);
         }
 
-        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado })
+        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado, SlAlturaBarra, SlLarguraBarra })
         {
             s.ValueChanged += (_, _) => Mudou();
         }
         foreach (CheckBox c in new[] { ChkDentro, ChkFundo, ChkBarra, ChkClique, ChkParado, ChkTelaCheia })
         {
-            c.Click += (_, _) => Mudou();
+            c.Click += (_, _) =>
+            {
+                AtualizarBarra();
+                Mudou();
+            };
         }
         TxtCor.TextChanged += (_, _) =>
         {
@@ -121,6 +128,8 @@ public partial class JanelaConfiguracoes : Window
         Opacidade = SlOpac.Value,
         OpacidadeEmLinks = SlOpacLinks.Value,
         BarraEmTexto = ChkBarra.IsChecked == true,
+        AlturaBarra = (int)Math.Round(SlAlturaBarra.Value),
+        LarguraBarra = (int)Math.Round(SlLarguraBarra.Value),
         AtrasoMs = (int)Math.Round(SlSuav.Value),
         ManterBolinhaDentro = ChkDentro.IsChecked == true,
         FundoEmLinks = ChkFundo.IsChecked == true,
@@ -132,6 +141,13 @@ public partial class JanelaConfiguracoes : Window
         OpacidadeParado = SlOpacParado.Value,
         ProgramasPausados = _programas.ToArray()
     }.Validar();
+
+    private void AtualizarBarra()
+    {
+        bool ligada = ChkBarra.IsChecked == true;
+        SlAlturaBarra.IsEnabled = ligada;
+        SlLarguraBarra.IsEnabled = ligada;
+    }
 
     private void Mudou()
     {

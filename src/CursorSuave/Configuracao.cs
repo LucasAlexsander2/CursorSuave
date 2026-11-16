@@ -21,6 +21,8 @@ public sealed record Configuracao
     public double Opacidade { get; init; } = 0.6;
     public double OpacidadeEmLinks { get; init; } = 1.0;
     public bool BarraEmTexto { get; init; } = true;
+    public int AlturaBarra { get; init; } = 18;
+    public int LarguraBarra { get; init; } = 2;
     public int AtrasoMs { get; init; } = 100;
     public bool ManterBolinhaDentro { get; init; } = true;
     public bool FundoEmLinks { get; init; } = true;
@@ -54,6 +56,8 @@ public sealed record Configuracao
         {
             TamanhoAnel = Math.Clamp(TamanhoAnel, 16, 60),
             TamanhoBolinha = Math.Clamp(TamanhoBolinha, 4, 12),
+            AlturaBarra = Math.Clamp(AlturaBarra, 8, 28),
+            LarguraBarra = Math.Clamp(LarguraBarra, 1, 6),
             Cor = TentarLerCor(Cor, out _, out _, out _) ? NormalizarCor(Cor) : CorPadrao,
             Opacidade = Limitar(Opacidade, 0.2, 1, 0.6),
             OpacidadeEmLinks = Limitar(OpacidadeEmLinks, 0.2, 1, 1.0),

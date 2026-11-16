@@ -94,4 +94,28 @@ public class CursorSistemaBarraTests
         Assert.Equal(255, a);
         Assert.Equal(0, c);
     }
+
+    [Theory]
+    [InlineData(8, 1)]
+    [InlineData(28, 6)]
+    public void Barra_Extremos(int altura, int largura)
+    {
+        byte[] b = CursorSistema.GerarCurBarra(altura, largura);
+        Assert.Equal(new byte[] { 0, 0, 2, 0, 1, 0 }, b[..6]);
+        Assert.Equal(16, BitConverter.ToUInt16(b, 10));
+        Assert.Equal(16, BitConverter.ToUInt16(b, 12));
+        (byte c, byte a) = Pixel(b, 16, 16);
+        Assert.Equal(255, a);
+        Assert.Equal(255, c);
+        int opacos = 0;
+        for (int y = 0; y < 32; y++)
+        {
+            (byte cy, byte ay) = Pixel(b, 16, y);
+            if (ay == 255 && cy == 255)
+            {
+                opacos++;
+            }
+        }
+        Assert.InRange(opacos, altura - 1, altura + 1);
+    }
 }
