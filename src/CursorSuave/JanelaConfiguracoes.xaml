@@ -1,0 +1,75 @@
+<Window x:Class="CursorSuave.JanelaConfiguracoes"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cursor Suave - Configurações" Width="400" SizeToContent="Height"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen" ShowInTaskbar="True">
+    <StackPanel Margin="16">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="56"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Tamanho do anel" VerticalAlignment="Center"/>
+            <Slider x:Name="SlAnel" Grid.Row="0" Grid.Column="1" Minimum="16" Maximum="60" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,4"/>
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=SlAnel, StringFormat={}{0:0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="1" Text="Tamanho da bolinha" VerticalAlignment="Center"/>
+            <Slider x:Name="SlBolinha" Grid.Row="1" Grid.Column="1" Minimum="4" Maximum="12" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,4"/>
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=SlBolinha, StringFormat={}{0:0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="2" Text="Opacidade do anel" VerticalAlignment="Center"/>
+            <Slider x:Name="SlOpac" Grid.Row="2" Grid.Column="1" Minimum="0.2" Maximum="1" Margin="0,4"/>
+            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Value, ElementName=SlOpac, StringFormat={}{0:0.00}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="3" Text="Atraso do anel" VerticalAlignment="Center"/>
+            <Slider x:Name="SlSuav" Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="500" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4"/>
+            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Value, ElementName=SlSuav, StringFormat={}{0:0} ms}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="4" Text="Segundos até apagar" VerticalAlignment="Center"/>
+            <Slider x:Name="SlParado" Grid.Row="4" Grid.Column="1" Minimum="1" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,4"/>
+            <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding Value, ElementName=SlParado, StringFormat={}{0:0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="5" Text="Opacidade parado" VerticalAlignment="Center"/>
+            <Slider x:Name="SlOpacParado" Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="0.9" Margin="0,4"/>
+            <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding Value, ElementName=SlOpacParado, StringFormat={}{0:0.00}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <TextBlock Text="Cor" Width="60" VerticalAlignment="Center"/>
+            <StackPanel x:Name="Amostras" Orientation="Horizontal"/>
+            <TextBox x:Name="TxtCor" Width="80" Margin="8,0,0,0" MaxLength="7" VerticalContentAlignment="Center"/>
+        </StackPanel>
+
+        <StackPanel Margin="0,10,0,0">
+            <CheckBox x:Name="ChkDentro" Content="Manter a bolinha dentro do anel" Margin="0,2"/>
+            <CheckBox x:Name="ChkFundo" Content="Fundo leve ao passar sobre links" Margin="0,2"/>
+            <CheckBox x:Name="ChkClique" Content="Encolher ao clicar" Margin="0,2"/>
+            <CheckBox x:Name="ChkParado" Content="Apagar quando o mouse fica parado" Margin="0,2"/>
+            <CheckBox x:Name="ChkTelaCheia" Content="Pausar em tela cheia" Margin="0,2"/>
+            <CheckBox x:Name="ChkIniciar" Content="Iniciar com o Windows" Margin="0,2"/>
+            <CheckBox x:Name="ChkAtualizar" Content="Verificar atualizações automaticamente" Margin="0,2"/>
+        </StackPanel>
+
+        <TextBlock Text="Programas pausados (nome do processo)" Margin="0,10,0,4"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ComboBox x:Name="CmbProgramas" IsEditable="True"/>
+            <Button x:Name="BtnAdicionar" Grid.Column="1" Content="Adicionar" Margin="6,0,0,0" Padding="10,2"/>
+        </Grid>
+        <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ListBox x:Name="LstProgramas" Height="80"/>
+            <Button x:Name="BtnRemover" Grid.Column="1" Content="Remover" VerticalAlignment="Top" Margin="6,0,0,0" Padding="10,2"/>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnSalvar" Content="Salvar" Width="80" Padding="0,3" IsDefault="True"/>
+            <Button x:Name="BtnCancelar" Content="Cancelar" Width="80" Padding="0,3" Margin="8,0,0,0" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
