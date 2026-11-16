@@ -31,6 +31,8 @@ public sealed class EstadoAnel
     /// <summary>0 a 1: quanto do preenchimento branco (10%) de link está ativo.</summary>
     public double Preenchimento { get; private set; }
     public double Opacidade { get; private set; } = 1;
+    /// <summary>Segundos seguidos sem o mouse mexer nem clicar.</summary>
+    public double SegundosSemMexer => _parado;
     /// <summary>0 a 1: quanto do realce de opacidade da borda (sobre clicável) está ativo.</summary>
     public double RealceLink { get; private set; }
     /// <summary>Alfa da borda: de <c>Opacidade</c> configurada até <c>OpacidadeEmLinks</c>.</summary>

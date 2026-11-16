@@ -11,6 +11,8 @@ namespace CursorSuave;
 /// Configuração imutável. A thread do anel recebe uma nova instância por referência,
 /// nunca campos compartilhados mutáveis.
 /// </summary>
+public readonly record struct VisualDaBolinha(string Cor, double Opacidade, double OpacidadeEmLinks, double OpacidadeParado);
+
 public sealed record Configuracao
 {
     public const string CorPadrao = "#FFFFFF";
@@ -32,6 +34,11 @@ public sealed record Configuracao
     public bool VerificarAtualizacoes { get; init; } = true;
     public double SegundosParado { get; init; } = 3;
     public double OpacidadeParado { get; init; } = 0.3;
+    public double OpacidadeBolinha { get; init; } = 1.0;
+    public double OpacidadeBolinhaEmLinks { get; init; } = 1.0;
+    public double OpacidadeBolinhaParado { get; init; } = 1.0;
+    public string CorBolinha { get; init; } = CorPadrao;
+    public bool MesmoVisualBolinhaAnel { get; init; } = false;
     public IReadOnlyList<string> ProgramasPausados { get; init; } = Array.Empty<string>();
 
     private static readonly JsonSerializerOptions Opcoes = new()
@@ -64,8 +71,32 @@ public sealed record Configuracao
             AtrasoMs = Math.Clamp(AtrasoMs, 0, 500),
             SegundosParado = Limitar(SegundosParado, 1, 30, 3),
             OpacidadeParado = Limitar(OpacidadeParado, 0, 0.9, 0.3),
+            OpacidadeBolinha = Limitar(OpacidadeBolinha, MinOpacidadeBolinha, 1, 1.0),
+            OpacidadeBolinhaEmLinks = Limitar(OpacidadeBolinhaEmLinks, MinOpacidadeBolinha, 1, 1.0),
+            OpacidadeBolinhaParado = Limitar(OpacidadeBolinhaParado, MinOpacidadeBolinha, 1, 1.0),
+            CorBolinha = TentarLerCor(CorBolinha, out _, out _, out _) ? NormalizarCor(CorBolinha) : CorPadrao,
             ProgramasPausados = programas
         };
+    }
+
+    public const double MinOpacidadeBolinha = 0.1;
+
+    /// <summary>Visual efetivo da bolinha (e da barra): do anel se MesmoVisualBolinhaAnel, senão os campos próprios.</summary>
+    public VisualDaBolinha VisualBolinha()
+    {
+        if (MesmoVisualBolinhaAnel)
+        {
+            string cor = TentarLerCor(Cor, out _, out _, out _) ? NormalizarCor(Cor) : CorPadrao;
+            return new VisualDaBolinha(cor,
+                Limitar(Opacidade, MinOpacidadeBolinha, 1, 1.0),
+                Limitar(OpacidadeEmLinks, MinOpacidadeBolinha, 1, 1.0),
+                Limitar(OpacidadeParado, MinOpacidadeBolinha, 1, 1.0));
+        }
+        string c = TentarLerCor(CorBolinha, out _, out _, out _) ? NormalizarCor(CorBolinha) : CorPadrao;
+        return new VisualDaBolinha(c,
+            Limitar(OpacidadeBolinha, MinOpacidadeBolinha, 1, 1.0),
+            Limitar(OpacidadeBolinhaEmLinks, MinOpacidadeBolinha, 1, 1.0),
+            Limitar(OpacidadeBolinhaParado, MinOpacidadeBolinha, 1, 1.0));
     }
 
     private static double Limitar(double v, double min, double max, double padrao) =>

@@ -22,6 +22,7 @@ public partial class JanelaConfiguracoes : Window
     private readonly Action<Configuracao, bool> _salvar;
     private readonly List<string> _programas;
     private string _cor;
+    private string _corBolinha;
     private bool _carregando = true;
     private bool _salvou;
 
@@ -34,6 +35,7 @@ public partial class JanelaConfiguracoes : Window
         _salvar = salvar;
         _programas = original.ProgramasPausados.ToList();
         _cor = original.Cor;
+        _corBolinha = original.CorBolinha;
 
         SlAnel.Value = original.TamanhoAnel;
         SlBolinha.Value = original.TamanhoBolinha;
@@ -54,33 +56,28 @@ public partial class JanelaConfiguracoes : Window
         ChkIniciar.IsChecked = iniciarComWindows;
         ChkAtualizar.IsChecked = original.VerificarAtualizacoes;
         TxtCor.Text = original.Cor;
+        TxtCorBolinha.Text = original.CorBolinha;
+        SlOpacBolinha.Value = original.OpacidadeBolinha;
+        SlOpacBolinhaLinks.Value = original.OpacidadeBolinhaEmLinks;
+        SlOpacBolinhaParado.Value = original.OpacidadeBolinhaParado;
+        ChkMesmoVisual.IsChecked = original.MesmoVisualBolinhaAnel;
+        PainelBolinha.IsEnabled = !original.MesmoVisualBolinhaAnel;
         LstProgramas.ItemsSource = _programas;
         CmbProgramas.ItemsSource = ProcessosComJanela();
 
-        foreach (string hex in CoresProntas)
-        {
-            Configuracao.TentarLerCor(hex, out byte r, out byte g, out byte b);
-            var botao = new Button
-            {
-                Width = 22,
-                Height = 22,
-                Margin = new Thickness(0, 0, 4, 0),
-                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b)),
-                ToolTip = hex
-            };
-            botao.Click += (_, _) => TxtCor.Text = hex;
-            Amostras.Children.Add(botao);
-        }
+        AdicionarAmostras(Amostras, TxtCor);
+        AdicionarAmostras(AmostrasBolinha, TxtCorBolinha);
 
-        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado, SlAlturaBarra, SlLarguraBarra })
+        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado, SlAlturaBarra, SlLarguraBarra, SlOpacBolinha, SlOpacBolinhaLinks, SlOpacBolinhaParado })
         {
             s.ValueChanged += (_, _) => Mudou();
         }
-        foreach (CheckBox c in new[] { ChkDentro, ChkFundo, ChkBarra, ChkClique, ChkParado, ChkTelaCheia })
+        foreach (CheckBox c in new[] { ChkDentro, ChkFundo, ChkBarra, ChkClique, ChkParado, ChkTelaCheia, ChkMesmoVisual })
         {
             c.Click += (_, _) =>
             {
                 AtualizarBarra();
+                PainelBolinha.IsEnabled = ChkMesmoVisual.IsChecked != true;
                 Mudou();
             };
         }
@@ -89,6 +86,14 @@ public partial class JanelaConfiguracoes : Window
             if (Configuracao.TentarLerCor(TxtCor.Text, out _, out _, out _))
             {
                 _cor = TxtCor.Text;
+                Mudou();
+            }
+        };
+        TxtCorBolinha.TextChanged += (_, _) =>
+        {
+            if (Configuracao.TentarLerCor(TxtCorBolinha.Text, out _, out _, out _))
+            {
+                _corBolinha = TxtCorBolinha.Text;
                 Mudou();
             }
         };
@@ -139,8 +144,31 @@ public partial class JanelaConfiguracoes : Window
         VerificarAtualizacoes = ChkAtualizar.IsChecked == true,
         SegundosParado = SlParado.Value,
         OpacidadeParado = SlOpacParado.Value,
+        OpacidadeBolinha = SlOpacBolinha.Value,
+        OpacidadeBolinhaEmLinks = SlOpacBolinhaLinks.Value,
+        OpacidadeBolinhaParado = SlOpacBolinhaParado.Value,
+        CorBolinha = _corBolinha,
+        MesmoVisualBolinhaAnel = ChkMesmoVisual.IsChecked == true,
         ProgramasPausados = _programas.ToArray()
     }.Validar();
+
+    private static void AdicionarAmostras(StackPanel destino, TextBox campo)
+    {
+        foreach (string hex in CoresProntas)
+        {
+            Configuracao.TentarLerCor(hex, out byte r, out byte g, out byte b);
+            var botao = new Button
+            {
+                Width = 22,
+                Height = 22,
+                Margin = new Thickness(0, 0, 4, 0),
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b)),
+                ToolTip = hex
+            };
+            botao.Click += (_, _) => campo.Text = hex;
+            destino.Children.Add(botao);
+        }
+    }
 
     private void AtualizarBarra()
     {

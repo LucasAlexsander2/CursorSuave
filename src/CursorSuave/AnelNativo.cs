@@ -129,6 +129,7 @@ public sealed class AnelNativo : IDisposable
         int tamanhoLogicoAtual = 0;
         Configuracao? configAplicada = null;
         byte corR = 255, corG = 255, corB = 255;
+        double opacidadeParadoBolinha = 1;
         bool visivel = false;
         bool primeiro = true;
         double ultimoX = double.NaN, ultimoY = double.NaN;
@@ -187,6 +188,7 @@ public sealed class AnelNativo : IDisposable
                     _seguidor.AtrasoSegundos = cfg.AtrasoMs / 1000.0;
                     _seguidor.ManterDentro = cfg.ManterBolinhaDentro;
                     Configuracao.TentarLerCor(cfg.Cor, out corR, out corG, out corB);
+                    opacidadeParadoBolinha = cfg.VisualBolinha().OpacidadeParado;
                     ultimoX = double.NaN; // força o redesenho
                 }
 
@@ -212,6 +214,11 @@ public sealed class AnelNativo : IDisposable
                     _estado.Reiniciar();
                 }
                 _estado.Atualizar(dt, mexeu && !primeiro, pressionado, sobreLink, cursorVisivel, cfg.FundoEmLinks);
+                // Bolinha e barra apagam em degraus quando o mouse fica parado (só troca se o degrau mudou).
+                int degrauBolinha = cfg.SumirParado
+                    ? NivelBolinha.Calcular(_estado.SegundosSemMexer, cfg.SegundosParado, opacidadeParadoBolinha).Degrau
+                    : 0;
+                CursorSistema.DefinirNivel(degrauBolinha);
                 double diametro = _estado.Diametro * _estado.EscalaClique;
                 // Trava pelo raio atual do anel e da bolinha.
                 double limite = Math.Max(0, diametro / 2 - cfg.TamanhoBolinha / 2.0 - Borda) * escala;

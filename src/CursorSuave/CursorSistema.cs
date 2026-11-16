@@ -9,10 +9,24 @@ public static class CursorSistema
     public const int Hotspot = 16;
     public const int DiametroPadrao = 6;
 
-    /// <summary>Gera os bytes de um .cur 32x32 (32 bpp) com o ponto (diâmetro 4 a 12) no centro.</summary>
-    public static byte[] GerarCur(int diametro = DiametroPadrao)
+    private static (byte R, byte G, byte B) LerCor(string? cor)
+    {
+        if (!Configuracao.TentarLerCor(cor, out byte r, out byte g, out byte b))
+        {
+            r = g = b = 255;
+        }
+        return (r, g, b);
+    }
+
+    private static double LimitarOpacidade(double o) => double.IsNaN(o) ? 1 : Math.Clamp(o, 0, 1);
+
+    /// <summary>Gera os bytes de um .cur 32x32 (32 bpp) com o ponto (diâmetro 4 a 12) no centro.
+    /// O miolo tem a cor pedida, o contorno é escuro, e a opacidade multiplica o alfa (pré-multiplicado).</summary>
+    public static byte[] GerarCur(int diametro = DiametroPadrao, double opacidade = 1, string cor = Configuracao.CorPadrao)
     {
         diametro = Math.Clamp(diametro, 4, 12);
+        opacidade = LimitarOpacidade(opacidade);
+        (byte cr, byte cg, byte cb) = LerCor(cor);
         double raioBranco = diametro / 2.0;
         double raioContorno = raioBranco + 1; // contorno escuro de 1px
         return Montar((x, y) =>
@@ -22,38 +36,46 @@ public static class CursorSistema
             double d = Math.Sqrt(dx * dx + dy * dy);
             double aContorno = Math.Clamp(raioContorno + 0.5 - d, 0, 1);
             double aBranco = Math.Clamp(raioBranco + 0.5 - d, 0, 1);
-            // Branco por cima do contorno escuro (preto = 0), cor pré-multiplicada.
-            double cor = aContorno > 0 ? 255 * Math.Min(aBranco / aContorno, 1) : 0;
-            return ((byte)Math.Round(cor * aContorno), (byte)Math.Round(aContorno * 255));
+            // Miolo por cima do contorno escuro (preto = 0), cor pré-multiplicada.
+            double f = aContorno > 0 ? Math.Min(aBranco / aContorno, 1) : 0;
+            byte Canal(byte c) => (byte)Math.Round(c * f * aContorno * opacidade);
+            return (Canal(cb), Canal(cg), Canal(cr), (byte)Math.Round(aContorno * 255 * opacidade));
         });
     }
 
     public const int BarraAlturaPadrao = 18;
     public const int BarraLarguraPadrao = 2;
 
-    /// <summary>Gera um .cur 32x32 com uma barra vertical branca (contorno escuro de 1 px) centralizada no hotspot.</summary>
-    public static byte[] GerarCurBarra(int alturaPx = BarraAlturaPadrao, int larguraPx = BarraLarguraPadrao)
+    /// <summary>Gera um .cur 32x32 com uma barra vertical (contorno escuro de 1 px) centralizada no hotspot.</summary>
+    public static byte[] GerarCurBarra(int alturaPx = BarraAlturaPadrao, int larguraPx = BarraLarguraPadrao,
+        string cor = Configuracao.CorPadrao, double opacidade = 1)
     {
         alturaPx = Math.Clamp(alturaPx, 8, 28);
         larguraPx = Math.Clamp(larguraPx, 1, 6);
+        opacidade = LimitarOpacidade(opacidade);
+        (byte cr, byte cg, byte cb) = LerCor(cor);
+        byte alfa = (byte)Math.Round(255 * opacidade);
+        byte Canal(byte c) => (byte)Math.Round(c * opacidade);
+        (byte B, byte G, byte R, byte A) miolo = (Canal(cb), Canal(cg), Canal(cr), alfa);
+        (byte B, byte G, byte R, byte A) contorno = (0, 0, 0, alfa);
         int x0 = Hotspot - larguraPx / 2, x1 = x0 + larguraPx; // [x0, x1)
         int y0 = Hotspot - alturaPx / 2, y1 = y0 + alturaPx;   // [y0, y1)
         return Montar((x, y) =>
         {
             if (x >= x0 && x < x1 && y >= y0 && y < y1)
             {
-                return (255, 255);
+                return miolo;
             }
             if (x >= x0 - 1 && x < x1 + 1 && y >= y0 - 1 && y < y1 + 1)
             {
-                return (0, 255);
+                return contorno;
             }
-            return (0, 0);
+            return (0, 0, 0, 0);
         });
     }
 
-    /// <summary>Monta o .cur; o delegado devolve (cor pré-multiplicada, alfa) do pixel (x, y), y de cima para baixo.</summary>
-    private static byte[] Montar(Func<int, int, (byte Cor, byte Alfa)> pixel)
+    /// <summary>Monta o .cur; o delegado devolve (B, G, R pré-multiplicados, alfa) do pixel (x, y), y de cima para baixo.</summary>
+    private static byte[] Montar(Func<int, int, (byte B, byte G, byte R, byte A)> pixel)
     {
         const int w = Tamanho;
         const int bytesPixels = w * w * 4;
@@ -94,10 +116,10 @@ public static class CursorSistema
         {
             for (int x = 0; x < w; x++)
             {
-                (byte c, byte a) = pixel(x, y);
-                bw.Write(c);
-                bw.Write(c);
-                bw.Write(c);
+                (byte b, byte g, byte r, byte a) = pixel(x, y);
+                bw.Write(b);
+                bw.Write(g);
+                bw.Write(r);
                 bw.Write(a);
             }
         }
@@ -108,16 +130,35 @@ public static class CursorSistema
         return ms.ToArray();
     }
 
-    private static string CaminhoCur => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CursorSuave", "ponto.cur");
+    private static string Pasta => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CursorSuave");
 
-    private static string CaminhoBarra => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CursorSuave", "barra.cur");
+    private static string CaminhoArquivo(CursorDaBolinha tipo, int degrau) => Path.Combine(Pasta,
+        tipo switch
+        {
+            CursorDaBolinha.Barra => degrau == 0 ? "barra.cur" : $"barra-n{degrau}.cur",
+            CursorDaBolinha.Mao => $"ponto-mao-n{degrau}.cur",
+            _ => degrau == 0 ? "ponto.cur" : $"ponto-n{degrau}.cur"
+        });
+
+    private static uint IdDoSistema(CursorDaBolinha tipo) => tipo switch
+    {
+        CursorDaBolinha.Barra => Nativo.OCR_IBEAM,
+        CursorDaBolinha.Mao => Nativo.OCR_HAND,
+        _ => Nativo.OCR_NORMAL
+    };
 
     // "Ocultar ponteiro ao digitar": valor original guardado uma única vez.
     private static bool? _vanishOriginal;
-    private static IntPtr _maoAplicada;
-    private static IntPtr _maoArquivo;
+    private static volatile IntPtr _maoAplicada;
+    private static volatile IntPtr _maoArquivo;
+
+    // Estado das trocas: lido/escrito com _trava (thread do anel e thread da interface).
+    private static readonly object _trava = new();
+    private static bool _aplicado;
+    private static volatile int _nivel;
+    private static bool _barraAtiva;
+    private static int _maxDegrau;
 
     /// <summary>O cursor atual é a mão trocada pela bolinha (sobre um link)?</summary>
     public static bool EhMao(IntPtr hCursor)
@@ -131,49 +172,83 @@ public static class CursorSistema
         return hCursor == a || hCursor == b;
     }
 
-    /// <summary>Troca os cursores normal e mão pela bolinha (e a I-beam pela barra, se pedido).</summary>
-    public static void Aplicar(int diametro = DiametroPadrao, bool barraEmTexto = false,
-        int alturaBarra = BarraAlturaPadrao, int larguraBarra = BarraLarguraPadrao)
+    /// <summary>Troca os cursores normal e mão pela bolinha (e a I-beam pela barra, se pedido), no degrau atual.
+    /// Cor e opacidades vêm de <see cref="Configuracao.VisualBolinha"/>.</summary>
+    public static void Aplicar(Configuracao cfg)
     {
+        VisualDaBolinha v = cfg.VisualBolinha();
         try
         {
-            string caminho = CaminhoCur;
-            Directory.CreateDirectory(Path.GetDirectoryName(caminho)!);
-            File.WriteAllBytes(caminho, GerarCur(diametro));
-
-            foreach (uint id in new[] { Nativo.OCR_NORMAL, Nativo.OCR_HAND })
+            lock (_trava)
             {
-                // SetSystemCursor destrói o handle recebido: um handle novo para cada cursor.
-                IntPtr h = Nativo.LoadCursorFromFile(caminho);
-                if (id == Nativo.OCR_HAND)
+                Directory.CreateDirectory(Pasta);
+                _barraAtiva = cfg.BarraEmTexto;
+                // Sem apagar quando parado (opacidade 1): só existe o degrau 0.
+                _maxDegrau = v.OpacidadeParado >= 1 ? 0 : NivelBolinha.Degraus;
+                if (_nivel > _maxDegrau)
                 {
-                    _maoArquivo = h;
+                    _nivel = _maxDegrau;
                 }
-                if (h != IntPtr.Zero)
+                for (int n = 0; n <= _maxDegrau; n++)
                 {
-                    Nativo.SetSystemCursor(h, id);
+                    double fator = NivelBolinha.FatorDoDegrau(n, v.OpacidadeParado);
+                    File.WriteAllBytes(CaminhoArquivo(CursorDaBolinha.Normal, n),
+                        GerarCur(cfg.TamanhoBolinha, v.Opacidade * fator, v.Cor));
+                    File.WriteAllBytes(CaminhoArquivo(CursorDaBolinha.Mao, n),
+                        GerarCur(cfg.TamanhoBolinha, v.OpacidadeEmLinks * fator, v.Cor));
+                    if (cfg.BarraEmTexto)
+                    {
+                        File.WriteAllBytes(CaminhoArquivo(CursorDaBolinha.Barra, n),
+                            GerarCurBarra(cfg.AlturaBarra, cfg.LarguraBarra, v.Cor, v.Opacidade * fator));
+                    }
                 }
+                _aplicado = true;
+                TrocarCursores(_nivel);
+                DesligarOcultarAoDigitar();
             }
-
-            if (barraEmTexto)
-            {
-                string barra = CaminhoBarra;
-                File.WriteAllBytes(barra, GerarCurBarra(alturaBarra, larguraBarra));
-                // Outro LoadCursorFromFile: o SetSystemCursor destrói o handle recebido.
-                IntPtr hb = Nativo.LoadCursorFromFile(barra);
-                if (hb != IntPtr.Zero)
-                {
-                    Nativo.SetSystemCursor(hb, Nativo.OCR_IBEAM);
-                }
-            }
-
-            _maoAplicada = Nativo.LoadCursor(IntPtr.Zero, (IntPtr)Nativo.IDC_HAND);
-
-            DesligarOcultarAoDigitar();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Sem permissão de escrita: mantém o cursor original.
+        }
+    }
+
+    /// <summary>Carrega e instala os cursores do degrau (só com _trava). Um handle novo para cada
+    /// cursor, porque o SetSystemCursor destrói o handle recebido.</summary>
+    private static void TrocarCursores(int degrau)
+    {
+        foreach (CursorDaBolinha tipo in NivelBolinha.CursoresDoDegrau(_barraAtiva))
+        {
+            IntPtr h = Nativo.LoadCursorFromFile(CaminhoArquivo(tipo, degrau));
+            if (tipo == CursorDaBolinha.Mao)
+            {
+                _maoArquivo = h;
+            }
+            if (h != IntPtr.Zero)
+            {
+                Nativo.SetSystemCursor(h, IdDoSistema(tipo));
+            }
+        }
+        _maoAplicada = Nativo.LoadCursor(IntPtr.Zero, (IntPtr)Nativo.IDC_HAND);
+    }
+
+    /// <summary>Muda para o degrau (0 a 4) de apagar. Não faz nada se o degrau não mudou ou se
+    /// a bolinha não está aplicada (pausa, Restaurar). Chamado pela thread do anel.</summary>
+    public static void DefinirNivel(int degrau)
+    {
+        if (degrau == _nivel)
+        {
+            return;
+        }
+        lock (_trava)
+        {
+            degrau = Math.Clamp(degrau, 0, _maxDegrau);
+            if (!_aplicado || degrau == _nivel)
+            {
+                return;
+            }
+            _nivel = degrau;
+            TrocarCursores(degrau);
         }
     }
 
@@ -191,13 +266,18 @@ public static class CursorSistema
     /// <summary>Recarrega os cursores originais do Windows.</summary>
     public static void Restaurar()
     {
-        if (_vanishOriginal is bool original)
+        lock (_trava)
         {
-            Nativo.SystemParametersInfo(Nativo.SPI_SETMOUSEVANISH, 0, original ? (IntPtr)1 : IntPtr.Zero, 0);
-            _vanishOriginal = null;
+            _aplicado = false;
+            _nivel = 0;
+            if (_vanishOriginal is bool original)
+            {
+                Nativo.SystemParametersInfo(Nativo.SPI_SETMOUSEVANISH, 0, original ? (IntPtr)1 : IntPtr.Zero, 0);
+                _vanishOriginal = null;
+            }
+            _maoAplicada = IntPtr.Zero;
+            _maoArquivo = IntPtr.Zero;
+            Nativo.SystemParametersInfo(Nativo.SPI_SETCURSORS, 0, IntPtr.Zero, 0);
         }
-        _maoAplicada = IntPtr.Zero;
-        _maoArquivo = IntPtr.Zero;
-        Nativo.SystemParametersInfo(Nativo.SPI_SETCURSORS, 0, IntPtr.Zero, 0);
     }
 }

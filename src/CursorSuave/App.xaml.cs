@@ -21,10 +21,7 @@ public partial class App : System.Windows.Application
     private ToolStripMenuItem? _itemIniciar;
     private JanelaConfiguracoes? _janelaConfig;
     private Configuracao _config = new Configuracao(); // só a thread da interface
-    private int _bolinhaAplicada = CursorSistema.DiametroPadrao;
-    private bool _barraAplicada;
-    private int _alturaBarraAplicada = CursorSistema.BarraAlturaPadrao;
-    private int _larguraBarraAplicada = CursorSistema.BarraLarguraPadrao;
+    private Configuracao _cursorAplicado = new Configuracao(); // última config usada em CursorSistema.Aplicar
     private bool _sincronizando;
     private readonly Atualizador _atualizador = new Atualizador();
     private DispatcherTimer? _timerAtualizacao;
@@ -299,11 +296,8 @@ public partial class App : System.Windows.Application
         _mostrando = deve;
         if (deve)
         {
-            CursorSistema.Aplicar(_config.TamanhoBolinha, _config.BarraEmTexto, _config.AlturaBarra, _config.LarguraBarra);
-            _bolinhaAplicada = _config.TamanhoBolinha;
-            _barraAplicada = _config.BarraEmTexto;
-            _alturaBarraAplicada = _config.AlturaBarra;
-            _larguraBarraAplicada = _config.LarguraBarra;
+            CursorSistema.Aplicar(_config);
+            _cursorAplicado = _config;
             _anel.Mostrar();
         }
         else
@@ -320,19 +314,15 @@ public partial class App : System.Windows.Application
         _config = nova;
         _anel?.Aplicar(nova);
 
-        if (_mostrando && (nova.TamanhoBolinha != _bolinhaAplicada || nova.BarraEmTexto != _barraAplicada
-            || nova.AlturaBarra != _alturaBarraAplicada || nova.LarguraBarra != _larguraBarraAplicada))
+        if (_mostrando && CursorMudou(_cursorAplicado, nova))
         {
-            if (nova.BarraEmTexto != _barraAplicada && !nova.BarraEmTexto)
+            if (nova.BarraEmTexto != _cursorAplicado.BarraEmTexto && !nova.BarraEmTexto)
             {
                 // SPI_SETCURSORS devolve a I-beam original; depois reaplica só o que está ligado.
                 CursorSistema.Restaurar();
             }
-            CursorSistema.Aplicar(nova.TamanhoBolinha, nova.BarraEmTexto, nova.AlturaBarra, nova.LarguraBarra);
-            _bolinhaAplicada = nova.TamanhoBolinha;
-            _barraAplicada = nova.BarraEmTexto;
-            _alturaBarraAplicada = nova.AlturaBarra;
-            _larguraBarraAplicada = nova.LarguraBarra;
+            CursorSistema.Aplicar(nova);
+            _cursorAplicado = nova;
         }
 
         if (_itemPausar is not null && _itemPausar.Checked != nova.PausarTelaCheia)
@@ -342,6 +332,12 @@ public partial class App : System.Windows.Application
             _sincronizando = false;
         }
     }
+
+    /// <summary>Algo que muda os arquivos dos cursores (tamanho, barra, cor ou opacidades efetivas)?</summary>
+    private static bool CursorMudou(Configuracao a, Configuracao b) =>
+        a.TamanhoBolinha != b.TamanhoBolinha || a.BarraEmTexto != b.BarraEmTexto
+        || a.AlturaBarra != b.AlturaBarra || a.LarguraBarra != b.LarguraBarra
+        || a.VisualBolinha() != b.VisualBolinha();
 
     private void AbrirConfiguracoes()
     {

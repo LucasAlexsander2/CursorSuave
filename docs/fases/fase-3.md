@@ -178,3 +178,87 @@
 **Roteiro (Lucas):** mexer nos dois sliders com o mouse sobre um campo de texto. A barra muda na hora, e depois de Salvar continua igual ao reabrir o app.
 
 Resultado: build 0 erros e 0 avisos; 81 testes aprovados (novos: extremos da barra e campos AlturaBarra/LarguraBarra). Desvio: nenhum; sliders de altura e largura ficam desabilitados com a caixa desmarcada. Roteiro na tela ainda com o Lucas.
+
+## Ajuste 3a.4 — opacidades da bolinha (16/11/2026)
+**Pedido do Lucas:** a bolinha do centro deve ter as mesmas opções de opacidade do anel:
+- a opacidade normal;
+- a opacidade sobre itens clicáveis;
+- a opacidade com o mouse parado.
+
+**Restrição:** a bolinha é o cursor real do Windows (`.cur`). A opacidade dela não pode ser animada como a do anel, então só muda trocando o arquivo do cursor.
+
+**Decisões:**
+- **Configuração:** campos `OpacidadeBolinha`, `OpacidadeBolinhaEmLinks` e `OpacidadeBolinhaParado`, todos double de 0,1 a 1. O padrão é **1,0** nos três, para manter o visual de hoje.
+- **Desenho:** `GerarCur(diametro, opacidade)` multiplica o alfa de todos os pixels (branco e contorno) pela opacidade. Os pixels estão em BGRA pré-multiplicado, então as cores também são multiplicadas.
+- **Opacidade normal:** é aplicada ao cursor `OCR_NORMAL`.
+- **Sobre clicável:** o `OCR_HAND` recebe um `.cur` próprio, gerado com `OpacidadeBolinhaEmLinks`. Não há troca dinâmica: o Windows já troca para a mão sozinho.
+- **Parado** (quando `SumirParado` estiver ligado e passar de `SegundosParado`):
+  - **Ao parar:** o `OCR_NORMAL` e o `OCR_HAND` são trocados por versões apagadas, com a opacidade de cada um multiplicada por `OpacidadeBolinhaParado`. A troca é feita em **4 degraus ao longo de 300 ms**, para parecer uma transição.
+  - **Ao mexer o mouse ou clicar:** a bolinha volta na hora para o valor cheio, numa única troca.
+  - **Sem trocas desnecessárias:** se `OpacidadeBolinhaParado` for 1, nenhuma troca acontece.
+  - **Barra de texto:** não muda quando o mouse fica parado.
+- **Implementação:**
+  - **Arquivos:** os `.cur` de cada nível (4 degraus × normal/mão) são gerados uma vez por configuração em `%LOCALAPPDATA%\CursorSuave\` e recriados quando a configuração muda.
+  - **Troca:** cada troca chama `LoadCursorFromFile` de novo, porque o `SetSystemCursor` destrói o handle.
+  - **Quem troca:** a thread do anel, que já sabe quando o mouse está parado. Ela chama um método de `CursorSistema` protegido por lock.
+  - **Detecção do clicável:** depois de cada troca, `EhMao` atualiza o handle de referência.
+  - **Pausa e saída:** o `Restaurar` continua devolvendo tudo ao original, e ao sair da pausa o nível volta ao cheio.
+- **Lógica pura testável:** `NivelBolinha.Calcular(segundosDesdeParado, segundosParado, opacidadeParado)` devolve o degrau (0 a 4) e a opacidade-alvo.
+- **Janela de Configurações:** uma seção "Bolinha" com três sliders: "Opacidade", "Opacidade em clicáveis" e "Opacidade parada". Mudam ao vivo, e o Cancelar volta ao que estava.
+
+**Testes unitários:**
+- **`GerarCur` com opacidade:**
+  1. Com 1, os bytes ficam iguais aos de hoje.
+  2. Com 0,5, o alfa do pixel central fica em cerca da metade.
+  3. O cabeçalho e o hotspot continuam válidos.
+- **`NivelBolinha`:**
+  1. Antes do tempo, o degrau é 0.
+  2. Os degraus sobem a cada 75 ms.
+  3. A partir de 300 ms, o degrau é 4.
+  4. Com `opacidadeParado` igual a 1, o degrau é sempre 0.
+- **`Configuracao`:** os padrões, as faixas e a ida e volta dos três campos.
+
+**Roteiro (Lucas):**
+1. Diminuir a opacidade da bolinha: ela fica mais transparente.
+2. Sobre um link, a bolinha usa a opacidade de clicáveis.
+3. Com o mouse parado, a bolinha apaga junto com o anel e volta na hora ao mexer.
+4. Sair do app: o cursor original do Windows volta.
+
+**Complemento (pedido do Lucas): cor da bolinha**
+- **Configuração:** campo `CorBolinha` (hex, padrão "#FFFFFF"), validado como a `Cor` do anel. Um valor inválido volta ao padrão.
+- **Desenho:** `GerarCur(diametro, opacidade, cor)` pinta o miolo com a cor e mantém o contorno escuro de 1 px.
+- **Barra de texto:** usa a mesma `CorBolinha` (`GerarCurBarra(altura, largura, cor)`), para combinar.
+- **Janela de Configurações:** na seção "Bolinha", 6 amostras prontas mais um campo hex, iguais aos do anel, com prévia ao vivo e Cancelar.
+- **Testes:**
+  1. Pixel central com a cor pedida (no BGRA pré-multiplicado).
+  2. Padrão branco.
+  3. Hex inválido volta ao padrão.
+- **Roteiro:** trocar a cor da bolinha. A bolinha e a barra mudam, e o anel continua com a cor dele.
+
+**Complemento 2 (pedido do Lucas): mesmas cores e opacidades para a bolinha e o anel**
+- **Configuração:** campo `MesmoVisualBolinhaAnel` (bool, padrão `false`).
+- **Janela de Configurações:** caixa "Usar a mesma cor e opacidades do anel na bolinha", no topo da seção "Bolinha".
+  - **Marcada:** os controles de cor e opacidade da bolinha ficam desabilitados.
+  - **Os valores salvos da bolinha não são apagados:** voltam a valer ao desmarcar.
+- **Valores efetivos da bolinha** (função pura `Configuracao.VisualBolinha()`, que devolve cor, opacidade, opacidade em clicáveis e opacidade parada):
+  - **Ligado:** usa `Cor`, `Opacidade`, `OpacidadeEmLinks` e `OpacidadeParado` do anel. Cada opacidade é limitada ao mínimo de 0,1 da bolinha.
+  - **Desligado:** usa os campos próprios da bolinha.
+  - **Quem usa:** todo código que gera ou aplica os cursores da bolinha e da barra.
+- **Testes:**
+  1. Ligado: devolve os valores do anel.
+  2. Desligado: devolve os da bolinha.
+  3. Opacidade parada 0 no anel dá 0,1 na bolinha.
+  4. Ida e volta do campo (salvar e carregar).
+- **Roteiro:** marcar a caixa e mudar a cor ou a opacidade do anel. A bolinha muda junto.
+
+**Complemento 3 (Lucas): a barra de texto conta como "bolinha"**
+Este complemento substitui a regra "Barra de texto: não muda quando o mouse fica parado" do ajuste 3a.4.
+- **Mesma aparência:** a barra (`OCR_IBEAM`) usa a mesma cor e a mesma opacidade normal da bolinha, pelo `VisualBolinha()`. Também segue a opção "mesmo visual do anel".
+- **Parado:** a barra apaga nos mesmos 4 degraus da bolinha e volta na hora ao mexer o mouse. São 3 cursores por degrau: normal, mão e barra.
+- **Opacidade em clicáveis:** não vale para a barra, porque campo de texto não é clicável.
+- **Barra desligada** (`BarraEmTexto = false`): a I-beam do Windows continua intocada.
+- **Testes:**
+  1. `GerarCurBarra` com opacidade e cor.
+  2. Com `BarraEmTexto` desligado, a barra não entra nas trocas de degrau (função pura que lista os cursores de cada degrau).
+
+Resultado (ajuste 3a.4 + complementos 1, 2 e 3): build 0 erros e 0 avisos; 107 testes aprovados (novos: GerarCur/GerarCurBarra com opacidade e cor, bytes iguais aos antigos com opacidade 1 e branco, NivelBolinha, campos e VisualBolinha() da Configuracao). Desvios: o complemento 3 vale; a barra apaga junto com a bolinha so com BarraEmTexto ligado e nao usa a opacidade em clicaveis; os .cur de cada degrau (ponto-nN, ponto-mao-nN, barra-nN) sao gerados em Aplicar (so o degrau 0 se a opacidade parada for 1); CursorSistema.Aplicar agora recebe a Configuracao; trocas por degrau (DefinirNivel) e Aplicar/Restaurar usam o mesmo lock, e Restaurar zera o degrau. Roteiro na tela ainda com o Lucas.
