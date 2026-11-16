@@ -15,6 +15,46 @@ public static class CursorSistema
         diametro = Math.Clamp(diametro, 4, 12);
         double raioBranco = diametro / 2.0;
         double raioContorno = raioBranco + 1; // contorno escuro de 1px
+        return Montar((x, y) =>
+        {
+            double dx = x + 0.5 - Hotspot;
+            double dy = y + 0.5 - Hotspot;
+            double d = Math.Sqrt(dx * dx + dy * dy);
+            double aContorno = Math.Clamp(raioContorno + 0.5 - d, 0, 1);
+            double aBranco = Math.Clamp(raioBranco + 0.5 - d, 0, 1);
+            // Branco por cima do contorno escuro (preto = 0), cor pré-multiplicada.
+            double cor = aContorno > 0 ? 255 * Math.Min(aBranco / aContorno, 1) : 0;
+            return ((byte)Math.Round(cor * aContorno), (byte)Math.Round(aContorno * 255));
+        });
+    }
+
+    public const int BarraAlturaPadrao = 18;
+    public const int BarraLarguraPadrao = 2;
+
+    /// <summary>Gera um .cur 32x32 com uma barra vertical branca (contorno escuro de 1 px) centralizada no hotspot.</summary>
+    public static byte[] GerarCurBarra(int alturaPx = BarraAlturaPadrao, int larguraPx = BarraLarguraPadrao)
+    {
+        alturaPx = Math.Clamp(alturaPx, 4, 28);
+        larguraPx = Math.Clamp(larguraPx, 1, 8);
+        int x0 = Hotspot - larguraPx / 2, x1 = x0 + larguraPx; // [x0, x1)
+        int y0 = Hotspot - alturaPx / 2, y1 = y0 + alturaPx;   // [y0, y1)
+        return Montar((x, y) =>
+        {
+            if (x >= x0 && x < x1 && y >= y0 && y < y1)
+            {
+                return (255, 255);
+            }
+            if (x >= x0 - 1 && x < x1 + 1 && y >= y0 - 1 && y < y1 + 1)
+            {
+                return (0, 255);
+            }
+            return (0, 0);
+        });
+    }
+
+    /// <summary>Monta o .cur; o delegado devolve (cor pré-multiplicada, alfa) do pixel (x, y), y de cima para baixo.</summary>
+    private static byte[] Montar(Func<int, int, (byte Cor, byte Alfa)> pixel)
+    {
         const int w = Tamanho;
         const int bytesPixels = w * w * 4;
         const int bytesMascara = w * 4; // 32 bits por linha
@@ -54,15 +94,7 @@ public static class CursorSistema
         {
             for (int x = 0; x < w; x++)
             {
-                double dx = x + 0.5 - Hotspot;
-                double dy = y + 0.5 - Hotspot;
-                double d = Math.Sqrt(dx * dx + dy * dy);
-                double aContorno = Math.Clamp(raioContorno + 0.5 - d, 0, 1);
-                double aBranco = Math.Clamp(raioBranco + 0.5 - d, 0, 1);
-                // Branco por cima do contorno escuro (preto = 0), cor pré-multiplicada.
-                double cor = aContorno > 0 ? 255 * Math.Min(aBranco / aContorno, 1) : 0;
-                byte a = (byte)Math.Round(aContorno * 255);
-                byte c = (byte)Math.Round(cor * aContorno);
+                (byte c, byte a) = pixel(x, y);
                 bw.Write(c);
                 bw.Write(c);
                 bw.Write(c);
@@ -78,6 +110,9 @@ public static class CursorSistema
 
     private static string CaminhoCur => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CursorSuave", "ponto.cur");
+
+    private static string CaminhoBarra => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CursorSuave", "barra.cur");
 
     // "Ocultar ponteiro ao digitar": valor original guardado uma única vez.
     private static bool? _vanishOriginal;
@@ -96,8 +131,8 @@ public static class CursorSistema
         return hCursor == a || hCursor == b;
     }
 
-    /// <summary>Troca os cursores normal e mão pela bolinha.</summary>
-    public static void Aplicar(int diametro = DiametroPadrao)
+    /// <summary>Troca os cursores normal e mão pela bolinha (e a I-beam pela barra, se pedido).</summary>
+    public static void Aplicar(int diametro = DiametroPadrao, bool barraEmTexto = false)
     {
         try
         {
@@ -116,6 +151,18 @@ public static class CursorSistema
                 if (h != IntPtr.Zero)
                 {
                     Nativo.SetSystemCursor(h, id);
+                }
+            }
+
+            if (barraEmTexto)
+            {
+                string barra = CaminhoBarra;
+                File.WriteAllBytes(barra, GerarCurBarra());
+                // Outro LoadCursorFromFile: o SetSystemCursor destrói o handle recebido.
+                IntPtr hb = Nativo.LoadCursorFromFile(barra);
+                if (hb != IntPtr.Zero)
+                {
+                    Nativo.SetSystemCursor(hb, Nativo.OCR_IBEAM);
                 }
             }
 

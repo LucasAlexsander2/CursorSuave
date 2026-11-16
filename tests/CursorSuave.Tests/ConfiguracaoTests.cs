@@ -122,3 +122,34 @@ public class ConfiguracaoAtualizacaoTests
         Assert.Equal(300, c.AtrasoMs);
     }
 }
+
+public class ConfiguracaoLinksBarraTests
+{
+    [Fact]
+    public void Padroes()
+    {
+        var c = new Configuracao();
+        Assert.Equal(1.0, c.OpacidadeEmLinks);
+        Assert.True(c.BarraEmTexto);
+    }
+
+    [Theory]
+    [InlineData(0.0, 0.2)]
+    [InlineData(5.0, 1.0)]
+    [InlineData(0.7, 0.7)]
+    [InlineData(double.NaN, 1.0)]
+    public void OpacidadeEmLinks_FicaNaFaixa(double entrada, double esperado)
+    {
+        Assert.Equal(esperado, (new Configuracao { OpacidadeEmLinks = entrada }).Validar().OpacidadeEmLinks, 6);
+    }
+
+    [Fact]
+    public void IdaEVolta()
+    {
+        var c = new Configuracao { OpacidadeEmLinks = 0.75, BarraEmTexto = false };
+        Configuracao l = Configuracao.Carregar(c.Salvar(), out bool corrompido);
+        Assert.False(corrompido);
+        Assert.Equal(0.75, l.OpacidadeEmLinks, 6);
+        Assert.False(l.BarraEmTexto);
+    }
+}

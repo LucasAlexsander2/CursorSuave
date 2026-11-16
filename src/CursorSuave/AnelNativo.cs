@@ -135,7 +135,7 @@ public sealed class AnelNativo : IDisposable
         var relogio = Stopwatch.StartNew();
         double ultimo = 0;
         long ultimoTopmost = 0;
-        double ultimoDiametro = double.NaN, ultimoPreench = double.NaN;
+        double ultimoDiametro = double.NaN, ultimoPreench = double.NaN, ultimoBorda = double.NaN;
         int ultimoOx = 0, ultimoOy = 0;
         int ultimoAlpha = -1;
         int ultimoPx = int.MinValue, ultimoPy = int.MinValue;
@@ -182,7 +182,8 @@ public sealed class AnelNativo : IDisposable
                 if (!ReferenceEquals(cfg, configAplicada))
                 {
                     configAplicada = cfg;
-                    _estado.Configurar(cfg.TamanhoAnel, cfg.SegundosParado, cfg.OpacidadeParado, cfg.SumirParado);
+                    _estado.Configurar(cfg.TamanhoAnel, cfg.SegundosParado, cfg.OpacidadeParado, cfg.SumirParado,
+                        cfg.Opacidade, cfg.OpacidadeEmLinks);
                     _seguidor.AtrasoSegundos = cfg.AtrasoMs / 1000.0;
                     _seguidor.ManterDentro = cfg.ManterBolinhaDentro;
                     Configuracao.TentarLerCor(cfg.Cor, out corR, out corG, out corB);
@@ -197,7 +198,7 @@ public sealed class AnelNativo : IDisposable
                 if (Nativo.GetCursorInfo(ref info))
                 {
                     cursorVisivel = (info.flags & Nativo.CURSOR_SHOWING) != 0;
-                    sobreLink = cfg.FundoEmLinks && CursorSistema.EhMao(info.hCursor);
+                    sobreLink = CursorSistema.EhMao(info.hCursor);
                 }
                 bool pressionado = cfg.EfeitoClique &&
                                    (Nativo.GetAsyncKeyState(Nativo.VK_LBUTTON) < 0 ||
@@ -210,7 +211,7 @@ public sealed class AnelNativo : IDisposable
                 {
                     _estado.Reiniciar();
                 }
-                _estado.Atualizar(dt, mexeu && !primeiro, pressionado, sobreLink, cursorVisivel);
+                _estado.Atualizar(dt, mexeu && !primeiro, pressionado, sobreLink, cursorVisivel, cfg.FundoEmLinks);
                 double diametro = _estado.Diametro * _estado.EscalaClique;
                 // Trava pelo raio atual do anel e da bolinha.
                 double limite = Math.Max(0, diametro / 2 - cfg.TamanhoBolinha / 2.0 - Borda) * escala;
@@ -252,18 +253,21 @@ public sealed class AnelNativo : IDisposable
                                   Math.Abs(_seguidor.Y - ultimoY) > 0.01 ||
                                   double.IsNaN(ultimoDiametro) ||
                                   Math.Abs(diametro - ultimoDiametro) > 0.02 ||
-                                  Math.Abs(_estado.Preenchimento - ultimoPreench) > 0.005;
+                                  Math.Abs(_estado.Preenchimento - ultimoPreench) > 0.005 ||
+                                  double.IsNaN(ultimoBorda) ||
+                                  Math.Abs(_estado.OpacidadeBorda - ultimoBorda) > 0.002;
                 int alpha = (int)Math.Round(_estado.Opacidade * 255);
                 if (redesenhar)
                 {
                     int metade = tamanho / 2;
                     (ultimoOx, double fx) = Subpixel.Dividir(_seguidor.X, metade);
                     (ultimoOy, double fy) = Subpixel.Dividir(_seguidor.Y, metade);
-                    Desenhar(g!, metade + fx, metade + fy, escala, diametro, _estado.Preenchimento, corR, corG, corB, cfg.Opacidade);
+                    Desenhar(g!, metade + fx, metade + fy, escala, diametro, _estado.Preenchimento, corR, corG, corB, _estado.OpacidadeBorda);
                     ultimoX = _seguidor.X;
                     ultimoY = _seguidor.Y;
                     ultimoDiametro = diametro;
                     ultimoPreench = _estado.Preenchimento;
+                    ultimoBorda = _estado.OpacidadeBorda;
                 }
                 if (redesenhar || alpha != ultimoAlpha)
                 {

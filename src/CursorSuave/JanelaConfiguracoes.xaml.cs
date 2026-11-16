@@ -38,6 +38,8 @@ public partial class JanelaConfiguracoes : Window
         SlAnel.Value = original.TamanhoAnel;
         SlBolinha.Value = original.TamanhoBolinha;
         SlOpac.Value = original.Opacidade;
+        SlOpacLinks.Value = original.OpacidadeEmLinks;
+        ChkBarra.IsChecked = original.BarraEmTexto;
         SlSuav.Value = original.AtrasoMs;
         ChkDentro.IsChecked = original.ManterBolinhaDentro;
         SlParado.Value = original.SegundosParado;
@@ -67,11 +69,11 @@ public partial class JanelaConfiguracoes : Window
             Amostras.Children.Add(botao);
         }
 
-        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlSuav, SlParado, SlOpacParado })
+        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado })
         {
             s.ValueChanged += (_, _) => Mudou();
         }
-        foreach (CheckBox c in new[] { ChkDentro, ChkFundo, ChkClique, ChkParado, ChkTelaCheia })
+        foreach (CheckBox c in new[] { ChkDentro, ChkFundo, ChkBarra, ChkClique, ChkParado, ChkTelaCheia })
         {
             c.Click += (_, _) => Mudou();
         }
@@ -117,6 +119,8 @@ public partial class JanelaConfiguracoes : Window
         TamanhoBolinha = (int)Math.Round(SlBolinha.Value),
         Cor = _cor,
         Opacidade = SlOpac.Value,
+        OpacidadeEmLinks = SlOpacLinks.Value,
+        BarraEmTexto = ChkBarra.IsChecked == true,
         AtrasoMs = (int)Math.Round(SlSuav.Value),
         ManterBolinhaDentro = ChkDentro.IsChecked == true,
         FundoEmLinks = ChkFundo.IsChecked == true,

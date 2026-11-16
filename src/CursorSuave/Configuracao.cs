@@ -19,6 +19,8 @@ public sealed record Configuracao
     public int TamanhoBolinha { get; init; } = 6;
     public string Cor { get; init; } = CorPadrao;
     public double Opacidade { get; init; } = 0.6;
+    public double OpacidadeEmLinks { get; init; } = 1.0;
+    public bool BarraEmTexto { get; init; } = true;
     public int AtrasoMs { get; init; } = 100;
     public bool ManterBolinhaDentro { get; init; } = true;
     public bool FundoEmLinks { get; init; } = true;
@@ -54,6 +56,7 @@ public sealed record Configuracao
             TamanhoBolinha = Math.Clamp(TamanhoBolinha, 4, 12),
             Cor = TentarLerCor(Cor, out _, out _, out _) ? NormalizarCor(Cor) : CorPadrao,
             Opacidade = Limitar(Opacidade, 0.2, 1, 0.6),
+            OpacidadeEmLinks = Limitar(OpacidadeEmLinks, 0.2, 1, 1.0),
             AtrasoMs = Math.Clamp(AtrasoMs, 0, 500),
             SegundosParado = Limitar(SegundosParado, 1, 30, 3),
             OpacidadeParado = Limitar(OpacidadeParado, 0, 0.9, 0.3),

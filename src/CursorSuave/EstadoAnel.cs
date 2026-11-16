@@ -21,6 +21,8 @@ public sealed class EstadoAnel
     private double _opacidadeParado = OpacidadeParadoPadrao;
     private bool _sumirParado = true;
     private double _parado;
+    private double _opacidadeBorda = 0.6;
+    private double _opacidadeEmLinks = 1.0;
 
     /// <summary>Diâmetro lógico (sem a escala do clique).</summary>
     public double Diametro { get; private set; }
@@ -29,6 +31,10 @@ public sealed class EstadoAnel
     /// <summary>0 a 1: quanto do preenchimento branco (10%) de link está ativo.</summary>
     public double Preenchimento { get; private set; }
     public double Opacidade { get; private set; } = 1;
+    /// <summary>0 a 1: quanto do realce de opacidade da borda (sobre clicável) está ativo.</summary>
+    public double RealceLink { get; private set; }
+    /// <summary>Alfa da borda: de <c>Opacidade</c> configurada até <c>OpacidadeEmLinks</c>.</summary>
+    public double OpacidadeBorda => _opacidadeBorda + (_opacidadeEmLinks - _opacidadeBorda) * RealceLink;
 
     public EstadoAnel(double diametroBase = DiametroPadrao,
         double segundosParado = SegundosParadoPadrao)
@@ -39,8 +45,11 @@ public sealed class EstadoAnel
     }
 
     /// <summary>Troca os parâmetros (só pela thread do anel); os valores animados convergem aos poucos.</summary>
-    public void Configurar(double diametroBase, double segundosParado, double opacidadeParado, bool sumirParado)
+    public void Configurar(double diametroBase, double segundosParado, double opacidadeParado, bool sumirParado,
+        double opacidadeBorda = 0.6, double opacidadeEmLinks = 1.0)
     {
+        _opacidadeBorda = opacidadeBorda;
+        _opacidadeEmLinks = opacidadeEmLinks;
         _diametroBase = diametroBase;
         _segundosParado = segundosParado;
         _opacidadeParado = opacidadeParado;
@@ -52,12 +61,13 @@ public sealed class EstadoAnel
         Diametro = _diametroBase;
         EscalaClique = 1;
         Preenchimento = 0;
+        RealceLink = 0;
         Opacidade = 1;
         _parado = 0;
     }
 
     public (double DiametroLogico, double Opacidade) Atualizar(double dt, bool mexeu, bool pressionado,
-        bool sobreLink, bool cursorVisivel)
+        bool sobreLink, bool cursorVisivel, bool fundoEmLinks = true)
     {
         dt = Math.Max(dt, 0);
         double f = 1 - Math.Pow(1 - Seguidor.SuavidadePadrao, dt * 60);
@@ -66,7 +76,8 @@ public sealed class EstadoAnel
         double alvoDiametro = _diametroBase;
         Diametro += (alvoDiametro - Diametro) * f;
         EscalaClique += ((pressionado ? EscalaCliquePressionado : 1) - EscalaClique) * f;
-        Preenchimento += ((sobreLink ? 1 : 0) - Preenchimento) * f;
+        Preenchimento += ((sobreLink && fundoEmLinks ? 1 : 0) - Preenchimento) * f;
+        RealceLink += ((sobreLink ? 1 : 0) - RealceLink) * f;
 
         if (mexeu || pressionado)
         {

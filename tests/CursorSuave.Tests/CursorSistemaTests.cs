@@ -55,3 +55,43 @@ public class CursorSistemaDiametroTests
         Assert.True(Opacos(CursorSistema.GerarCur(12)) > Opacos(CursorSistema.GerarCur(4)));
     }
 }
+
+public class CursorSistemaBarraTests
+{
+    // Pixel (x, y) contado de cima para baixo; o arquivo guarda as linhas de baixo para cima.
+    private static (byte B, byte A) Pixel(byte[] b, int x, int y)
+    {
+        int offset = BitConverter.ToInt32(b, 18) + 40;
+        int i = offset + ((31 - y) * 32 + x) * 4;
+        return (b[i], b[i + 3]);
+    }
+
+    [Fact]
+    public void Barra_CabecalhoEHotspotValidos()
+    {
+        byte[] b = CursorSistema.GerarCurBarra();
+        Assert.Equal(new byte[] { 0, 0, 2, 0, 1, 0 }, b[..6]);
+        Assert.Equal(16, BitConverter.ToUInt16(b, 10));
+        Assert.Equal(16, BitConverter.ToUInt16(b, 12));
+        Assert.Equal(b.Length - BitConverter.ToInt32(b, 18), BitConverter.ToInt32(b, 14));
+    }
+
+    [Fact]
+    public void Barra_PixelCentralBrancoOpaco()
+    {
+        (byte c, byte a) = Pixel(CursorSistema.GerarCurBarra(), 16, 16);
+        Assert.Equal(255, a);
+        Assert.Equal(255, c);
+    }
+
+    [Fact]
+    public void Barra_ContornoEscuroEForaTransparente()
+    {
+        byte[] b = CursorSistema.GerarCurBarra();
+        Assert.Equal((byte)0, Pixel(b, 0, 0).A);
+        Assert.Equal((byte)0, Pixel(b, 16, 2).A);
+        (byte c, byte a) = Pixel(b, 14, 16); // 1 px à esquerda da barra (x 15 e 16)
+        Assert.Equal(255, a);
+        Assert.Equal(0, c);
+    }
+}

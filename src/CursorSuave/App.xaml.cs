@@ -22,6 +22,7 @@ public partial class App : System.Windows.Application
     private JanelaConfiguracoes? _janelaConfig;
     private Configuracao _config = new Configuracao(); // só a thread da interface
     private int _bolinhaAplicada = CursorSistema.DiametroPadrao;
+    private bool _barraAplicada;
     private bool _sincronizando;
     private readonly Atualizador _atualizador = new Atualizador();
     private DispatcherTimer? _timerAtualizacao;
@@ -296,8 +297,9 @@ public partial class App : System.Windows.Application
         _mostrando = deve;
         if (deve)
         {
-            CursorSistema.Aplicar(_config.TamanhoBolinha);
+            CursorSistema.Aplicar(_config.TamanhoBolinha, _config.BarraEmTexto);
             _bolinhaAplicada = _config.TamanhoBolinha;
+            _barraAplicada = _config.BarraEmTexto;
             _anel.Mostrar();
         }
         else
@@ -314,10 +316,16 @@ public partial class App : System.Windows.Application
         _config = nova;
         _anel?.Aplicar(nova);
 
-        if (_mostrando && nova.TamanhoBolinha != _bolinhaAplicada)
+        if (_mostrando && (nova.TamanhoBolinha != _bolinhaAplicada || nova.BarraEmTexto != _barraAplicada))
         {
-            CursorSistema.Aplicar(nova.TamanhoBolinha);
+            if (nova.BarraEmTexto != _barraAplicada && !nova.BarraEmTexto)
+            {
+                // SPI_SETCURSORS devolve a I-beam original; depois reaplica só o que está ligado.
+                CursorSistema.Restaurar();
+            }
+            CursorSistema.Aplicar(nova.TamanhoBolinha, nova.BarraEmTexto);
             _bolinhaAplicada = nova.TamanhoBolinha;
+            _barraAplicada = nova.BarraEmTexto;
         }
 
         if (_itemPausar is not null && _itemPausar.Checked != nova.PausarTelaCheia)

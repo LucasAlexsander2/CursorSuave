@@ -21,6 +21,7 @@ internal static class Nativo
 
     public const uint OCR_NORMAL = 32512;
     public const uint OCR_HAND = 32649;
+    public const uint OCR_IBEAM = 32513;
     public const uint SPI_SETCURSORS = 0x0057;
     public const uint SPI_GETMOUSEVANISH = 0x1020;
     public const uint SPI_SETMOUSEVANISH = 0x1021;

@@ -127,3 +127,35 @@
 2. Desmarcar "Manter a bolinha dentro do anel" com o atraso alto e arrastar o mouse rápido: a bolinha sai do anel e o anel volta a alcançá-la.
 
 **Resultado:** build com 0 erros e 0 avisos; 62 testes passando (7 novos: atraso 0, 63% em 100 ms, sem trava, padrões, faixa e 2 de migração). Desvios: a migração de Suavidade 0,15 dá 103 ms (a fórmula do doc, arredondada), não exatamente 100; `Seguidor.SuavidadePadrao` foi mantida só para as animações do `EstadoAnel`. Slider reaproveita `SlSuav` (rótulo "Atraso do anel", exibe "N ms"). Não executei o app.
+
+## Ajuste 3a.2 — anel mais forte em itens clicáveis e barra em campos de texto (16/11/2026)
+**Pedido do Lucas:**
+- Sobre itens clicáveis, a opacidade do anel aumenta, com valor configurável.
+- Em campos de texto, o cursor vira uma barra "|", também configurável.
+
+**Decisões:**
+- **Sobre clicável** (o mesmo `sobreLink` que vem de `CursorSistema.EhMao`):
+  - **Borda:** o alfa da borda vai de `Opacidade` até `OpacidadeEmLinks`, com transição suave (o mesmo lerp do `Preenchimento`).
+  - **Fundo:** o fundo de 10% continua controlado por `FundoEmLinks`.
+  - **Configuração:** campo `OpacidadeEmLinks` (double, de 0,2 a 1, padrão 1,0), com o slider "Opacidade do anel em itens clicáveis" na janela de Configurações.
+  - **Se `OpacidadeEmLinks` for menor que `Opacidade`:** vale o valor configurado, sem forçar que seja maior.
+- **Barra em campos de texto:**
+  - **Formato:** `CursorSistema.GerarCurBarra(alturaPx, larguraPx)` gera um `.cur` de 32×32 com a barra vertical branca centralizada e um contorno escuro de 1 px. O padrão é 2 px de largura por 18 px de altura, com o hotspot no centro (16,16).
+  - **Aplicação:** a barra substitui `OCR_IBEAM` (32513), com um handle novo de `LoadCursorFromFile` (`barra.cur`).
+  - **Restauração:** continua pelo `SPI_SETCURSORS`, que já restaura todos os cursores.
+  - **Configuração:** campo `BarraEmTexto` (bool, padrão `true`), com a caixa "Mostrar barra em campos de texto". Desligado, a I-beam original do Windows fica.
+  - **Ligar ou desligar ao vivo:** reaplica os cursores, porque `SPI_SETCURSORS` restaura tudo e depois o app aplica só o que estiver ligado.
+  - **Anel em campo de texto:** continua igual (sem mudança pedida).
+
+**Testes unitários:**
+- `GerarCurBarra`: o cabeçalho é válido, o hotspot fica em (16,16), o pixel central é opaco e branco, e um pixel fora da barra é transparente.
+- `Configuracao`: os padrões e as faixas de `OpacidadeEmLinks` e `BarraEmTexto`, e a ida e volta (salvar e carregar).
+- `EstadoAnel` (ou equivalente): sobre um clicável, a opacidade da borda converge para `OpacidadeEmLinks`; ao sair, volta para `Opacidade`.
+
+**Roteiro (Lucas):**
+1. Passar sobre um link ou botão: o anel fica mais forte, e o slider muda a intensidade ao vivo.
+2. Passar sobre um campo de texto: o cursor vira a barra.
+3. Desmarcar a caixa da barra: a I-beam do Windows volta.
+4. Sair do app: todos os cursores do Windows voltam ao original.
+
+**Resultado:** build com 0 erros e 0 avisos; 74 testes passando (12 novos: barra 3, EstadoAnel 3, Configuracao 6). Desvios: o CursorSuave.exe estava rodando, então build e testes usaram `-p:OutDir=C:\Temp\cs_out\` (o bin não foi tocado). `EstadoAnel` ganhou `RealceLink`/`OpacidadeBorda` e o parâmetro `fundoEmLinks`; o realce da borda vale mesmo com "Fundo leve" desligado (antes `sobreLink` já vinha filtrado por `FundoEmLinks`). Slider "Opacidade em clicáveis" e caixa "Mostrar barra em campos de texto" entram na prévia e no Cancelar. Ao desligar a barra, o app chama `Restaurar()` e reaplica a bolinha (um `LoadCursorFromFile` por cursor; `EhMao` é refeito no `Aplicar`). Não executei o app.
