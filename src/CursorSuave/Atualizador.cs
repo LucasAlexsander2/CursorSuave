@@ -15,17 +15,30 @@ public enum ResultadoVerificacao
     Erro
 }
 
+/// <summary>O que o ControleAtualizacao precisa do Velopack (separado para testar os estados sem ele).</summary>
+public interface IFonteAtualizacao
+{
+    bool Instalado { get; }
+    string? VersaoNova { get; }
+    string? UltimoErro { get; }
+    Task<ResultadoVerificacao> VerificarAsync();
+    Task<bool> BaixarAsync(Action<int> progresso);
+    bool AplicarEReiniciar(Action antesDeReiniciar);
+    void AplicarAoSair();
+}
+
 /// <summary>
 /// Envolve o Velopack: verifica o GitHub Releases, baixa e aplica a atualização.
 /// Fora da versão instalada (rodando do bin) tudo fica desligado.
 /// </summary>
-public sealed class Atualizador
+public sealed class Atualizador : IFonteAtualizacao
 {
     public const string Repositorio = "https://github.com/LucasAlexsander2/CursorSuave";
     public static readonly TimeSpan Intervalo = TimeSpan.FromHours(6);
 
     private readonly UpdateManager? _gerenciador;
     private UpdateInfo? _pendente;
+    private UpdateInfo? _baixada;
 
     public Atualizador()
     {
@@ -88,8 +101,8 @@ public sealed class Atualizador
         }
     }
 
-    /// <summary>Baixa a versão encontrada e reinicia o app com ela. Só chamar após o clique do usuário.</summary>
-    public async Task<bool> BaixarEAplicarAsync(Action<int> progresso, Action antesDeReiniciar)
+    /// <summary>Baixa a versão encontrada sem aplicar nem fechar o app.</summary>
+    public async Task<bool> BaixarAsync(Action<int> progresso)
     {
         if (_gerenciador is null || _pendente is null)
         {
@@ -98,14 +111,54 @@ public sealed class Atualizador
         try
         {
             await _gerenciador.DownloadUpdatesAsync(_pendente, progresso).ConfigureAwait(true);
-            antesDeReiniciar();
-            _gerenciador.ApplyUpdatesAndRestart(_pendente.TargetFullRelease);
+            _baixada = _pendente;
             return true;
         }
         catch (Exception ex)
         {
             UltimoErro = ex.Message;
             return false;
+        }
+    }
+
+    /// <summary>Aplica a versão já baixada e reinicia o app. Só chamar após o clique do usuário.</summary>
+    public bool AplicarEReiniciar(Action antesDeReiniciar)
+    {
+        if (_gerenciador is null || _baixada is null)
+        {
+            return false;
+        }
+        try
+        {
+            antesDeReiniciar();
+            _gerenciador.ApplyUpdatesAndRestart(_baixada.TargetFullRelease);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UltimoErro = ex.Message;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Com atualização baixada: agenda a aplicação para quando este processo terminar, sem reiniciar
+    /// (assinatura 1.2.161: WaitExitThenApplyUpdates(asset, silent, restart, restartArgs)).
+    /// Se falhar, vale a aplicação na próxima abertura (padrão do VelopackApp).
+    /// </summary>
+    public void AplicarAoSair()
+    {
+        if (_gerenciador is null || _baixada is null)
+        {
+            return;
+        }
+        try
+        {
+            _gerenciador.WaitExitThenApplyUpdates(_baixada.TargetFullRelease, silent: true, restart: false);
+        }
+        catch (Exception ex)
+        {
+            UltimoErro = ex.Message;
         }
     }
 }

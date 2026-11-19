@@ -40,6 +40,15 @@ jobs:
         continue-on-error: true
         run: vpk download github --repoUrl ${{ env.REPO_URL }} --token ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Conferir novidades da versão
+        shell: bash
+        # Nenhuma versão sai sem a nota em Novidades.json (o modal "Novidades" depende dela).
+        run: |
+          if ! grep -q "\"versao\": *\"${VERSAO}\"" src/CursorSuave/Novidades.json; then
+            echo "::error::Falta a entrada da versão ${VERSAO} em src/CursorSuave/Novidades.json"
+            exit 1
+          fi
+
       - name: Empacotar
         run: vpk pack -u CursorSuave -v ${{ env.VERSAO }} -p publish -e CursorSuave.exe --packTitle "Cursor Suave"
 

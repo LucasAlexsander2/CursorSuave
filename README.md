@@ -19,4 +19,4 @@ dotnet test
 ```
 
 ## Publicar uma versão
-Crie e envie uma tag: `git tag v1.2.3` e `git push origin v1.2.3`. O GitHub Actions roda os testes, empacota com o Velopack e publica a release.
+Crie e envie uma tag: `git tag v1.2.3` e `git push origin v1.2.3`. O GitHub Actions roda os testes, empacota com o Velopack e publica a release. Antes de criar a tag, acrescente a entrada da versão em `src/CursorSuave/Novidades.json`: sem ela o release falha.

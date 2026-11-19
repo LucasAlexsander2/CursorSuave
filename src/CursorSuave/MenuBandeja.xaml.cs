@@ -47,12 +47,15 @@ public partial class MenuBandeja : Window
         TglIniciar.Click += (_, _) => d.AoIniciar(TglIniciar.IsChecked == true);
 
         SituacaoAtualizacao s = d.Atualizacao;
-        bool temNova = s.VersaoNova is not null && s.Estado is EstadoAtualizacao.NovaVersao or EstadoAtualizacao.Baixando;
+        bool temNova = s.VersaoNova is not null && s.Estado is EstadoAtualizacao.NovaVersao or EstadoAtualizacao.Baixando or EstadoAtualizacao.Pronto;
         FaixaAtualizacao.Visibility = temNova ? Visibility.Visible : Visibility.Collapsed;
         if (temNova)
         {
             bool baixando = s.Estado == EstadoAtualizacao.Baixando;
-            TxtAtualizacao.Text = baixando ? $"Baixando… {s.Percentual}%" : $"Versão {s.VersaoNova} disponível";
+            bool pronto = s.Estado == EstadoAtualizacao.Pronto;
+            TxtAtualizacao.Text = pronto ? "Reiniciar para atualizar"
+                : baixando ? $"Baixando… {s.Percentual}%" : $"Versão {s.VersaoNova} disponível";
+            BtnAtualizar.Content = pronto ? "Reiniciar" : "Atualizar";
             BtnAtualizar.IsEnabled = !baixando;
         }
         switch (s.Estado)

@@ -255,4 +255,58 @@ public class ConfiguracaoBarraTamanhoTests
         Assert.Equal("#4CC2FF", v.CorMarcacao);
         Assert.Equal(0.1, v.OpacidadeMarcacao);
     }
+
+    [Fact]
+    public void JsonAntigoSemModoAvancado_DaTrue()
+    {
+        var c = Configuracao.Carregar("{\"TamanhoAnel\":30}", out bool corrompido);
+        Assert.False(corrompido);
+        Assert.True(c.ModoAvancado);
+    }
+
+    [Fact]
+    public void SemArquivoOuCorrompido_ModoAvancadoEFalse()
+    {
+        Assert.False(Configuracao.Carregar("", out _).ModoAvancado);
+        Assert.False(new Configuracao().ModoAvancado);
+        var c = Configuracao.Carregar("{ quebrado", out bool corrompido);
+        Assert.True(corrompido);
+        Assert.False(c.ModoAvancado);
+    }
+
+    [Fact]
+    public void JsonComModoAvancadoFalse_ContinuaFalse()
+    {
+        Assert.False(Configuracao.Carregar("{\"ModoAvancado\":false}", out _).ModoAvancado);
+        Assert.True(Configuracao.Carregar("{\"ModoAvancado\":true}", out _).ModoAvancado);
+    }
+
+    [Fact]
+    public void ComPadroesVisuais_MantemModoAvancado()
+    {
+        Assert.True(new Configuracao { ModoAvancado = true, TamanhoAnel = 40 }.ComPadroesVisuais().ModoAvancado);
+        Assert.False(new Configuracao { ModoAvancado = false }.ComPadroesVisuais().ModoAvancado);
+    }
+
+    [Fact]
+    public void ModoAvancado_SobreviveAoSalvarECarregar()
+    {
+        var c = Configuracao.Carregar(new Configuracao { ModoAvancado = false }.Salvar(), out _);
+        Assert.False(c.ModoAvancado);
+    }
+
+    [Fact]
+    public void JsonAntigoSemUltimaVersaoVista_Da105()
+    {
+        Assert.Equal("1.0.5", Configuracao.Carregar("{\"TamanhoAnel\":30}", out _).UltimaVersaoVista);
+        Assert.Equal("1.0.5", new Configuracao().UltimaVersaoVista);
+    }
+
+    [Fact]
+    public void UltimaVersaoVista_VoltaDoJsonEMantemEmComPadroesVisuais()
+    {
+        var c = Configuracao.Carregar(new Configuracao { UltimaVersaoVista = "1.0.7" }.Salvar(), out _);
+        Assert.Equal("1.0.7", c.UltimaVersaoVista);
+        Assert.Equal("1.0.7", (c with { TamanhoAnel = 50 }).ComPadroesVisuais().UltimaVersaoVista);
+    }
 }

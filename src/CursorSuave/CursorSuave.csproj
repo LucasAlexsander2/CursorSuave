@@ -17,6 +17,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- LogicalName fixo: o nome do recurso não depende do namespace. -->
+    <EmbeddedResource Include="Novidades.json" LogicalName="Novidades.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 

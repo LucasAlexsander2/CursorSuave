@@ -77,7 +77,14 @@ public partial class App : System.Windows.Application
         CursorSistema.Restaurar();
         Guardiao.Iniciar();
 
+        bool primeiraExecucao = !System.IO.File.Exists(Configuracao.Caminho);
         _config = Configuracao.CarregarDoDisco();
+        if (primeiraExecucao)
+        {
+            // Usuário novo não vê "o que mudou": a primeira execução já parte da versão atual.
+            _config = _config with { UltimaVersaoVista = _atualizador.VersaoAtual };
+            _config.SalvarNoDisco();
+        }
         _anel = new AnelNativo();
         _anel.Aplicar(_config);
 
@@ -150,7 +157,7 @@ public partial class App : System.Windows.Application
             DefinirInicializacao,
             () => AbrirConfiguracoes(),
             async () => await _controle.VerificarAsync(true),
-            () => AbrirConfiguracoes(iniciarAtualizacao: true),
+            () => AbrirConfiguracoes(iniciarAtualizacao: true, reiniciarSePronto: true),
             () =>
             {
                 // Desligar "Ativo" restaura o cursor via Atualizar().
@@ -309,7 +316,7 @@ public partial class App : System.Windows.Application
         || a.AlturaBarra != b.AlturaBarra || a.LarguraBarra != b.LarguraBarra
         || a.VisualBolinha() != b.VisualBolinha();
 
-    private void AbrirConfiguracoes(bool iniciarAtualizacao = false)
+    private void AbrirConfiguracoes(bool iniciarAtualizacao = false, bool reiniciarSePronto = false)
     {
         if (_janelaConfig is not null)
         {
@@ -320,7 +327,7 @@ public partial class App : System.Windows.Application
             _janelaConfig.Activate();
             if (iniciarAtualizacao)
             {
-                _janelaConfig.IniciarAtualizacao();
+                _janelaConfig.IniciarAtualizacao(reiniciarSePronto);
             }
             return;
         }
@@ -333,15 +340,28 @@ public partial class App : System.Windows.Application
                 cfg.SalvarNoDisco();
                 DefinirInicializacao(iniciar);
             }, _atualizador.VersaoAtual,
-            () => _anel?.MostrarPreviaCarregando(), _controle, _iconeWpf);
+            () => _anel?.MostrarPreviaCarregando(), _controle, _iconeWpf,
+            modo =>
+            {
+                // Grava só o ModoAvancado sobre o arquivo salvo e acompanha em _config (sem passar pelo
+                // anel), para um Cancelar ou um salvamento da bandeja não gravarem o valor antigo.
+                _config = _config with { ModoAvancado = modo };
+                Configuracao.GravarModoAvancado(modo);
+            },
+            versao =>
+            {
+                // Mesmo padrão: só a marca de "novidades vistas", sem levar ajustes pendentes.
+                _config = _config with { UltimaVersaoVista = versao };
+                Configuracao.GravarUltimaVersaoVista(versao);
+            },
+            abrirNovidades: _atualizador.Instalado);
         janela.Closed += (_, _) => _janelaConfig = null;
         _janelaConfig = janela;
         janela.Show();
         janela.Activate();
         if (iniciarAtualizacao)
         {
-            // Depois do Show: a caixa de confirmação precisa da janela já aberta como dona.
-            janela.IniciarAtualizacao();
+            janela.IniciarAtualizacao(reiniciarSePronto);
         }
     }
 
@@ -383,6 +403,8 @@ public partial class App : System.Windows.Application
         _anel?.Dispose();
         _anel = null;
         CursorSistema.Restaurar();
+        // Com atualização baixada, o Velopack aplica quando este processo terminar (sem reabrir o app).
+        _controle.AplicarAoSair();
         if (_bandeja is not null)
         {
             _bandeja.Visible = false;

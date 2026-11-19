@@ -46,6 +46,13 @@ public sealed record Configuracao
     public int TamanhoMarcacao { get; init; } = 90;
     public string CorMarcacao { get; init; } = "#4CC2FF";
     public double OpacidadeMarcacao { get; init; } = 1.0;
+    // Preferência da tela de Configurações (Simples/Avançado), não do cursor. Padrão false (usuário novo);
+    // config.json antigo sem o campo vira true em Carregar, para ninguém perder opções de vista.
+    public bool ModoAvancado { get; init; } = false;
+    // Última versão cujas novidades o usuário viu. Padrão "1.0.5": config.json antigo sem o campo
+    // (de quem veio da 1.0.5) vê as novidades da 1.0.6. Usuário novo recebe a versão atual no App.
+    public string UltimaVersaoVista { get; init; } = VersaoSemNovidades;
+    public const string VersaoSemNovidades = "1.0.5";
 
     private static readonly JsonSerializerOptions Opcoes = new()
     {
@@ -93,7 +100,9 @@ public sealed record Configuracao
     {
         ProgramasPausados = ProgramasPausados,
         VerificarAtualizacoes = VerificarAtualizacoes,
-        OcultarEmCapturas = OcultarEmCapturas // opção do cartão Sistema: não volta ao padrão
+        OcultarEmCapturas = OcultarEmCapturas, // opção do cartão Geral: não volta ao padrão
+        ModoAvancado = ModoAvancado, // preferência da tela, não é aparência
+        UltimaVersaoVista = UltimaVersaoVista
     };
 
     public const double MinOpacidadeBolinha = 0.1;
@@ -138,13 +147,30 @@ public sealed record Configuracao
                 corrompido = true;
                 return new Configuracao();
             }
-            return MigrarSuavidade(texto, c).Validar();
+            return MigrarModoAvancado(texto, MigrarSuavidade(texto, c)).Validar();
         }
         catch (JsonException)
         {
             corrompido = true;
             return new Configuracao();
         }
+    }
+
+    /// <summary>Arquivo existente sem a propriedade "ModoAvancado" (usuário antigo): liga o modo Avançado.</summary>
+    private static Configuracao MigrarModoAvancado(string texto, Configuracao c)
+    {
+        using JsonDocument doc = JsonDocument.Parse(texto, new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        });
+        if (doc.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            return c;
+        }
+        bool tem = doc.RootElement.EnumerateObject()
+            .Any(p => p.Name.Equals("ModoAvancado", StringComparison.OrdinalIgnoreCase));
+        return tem ? c : c with { ModoAvancado = true };
     }
 
     /// <summary>JSON antigo com "Suavidade" e sem "AtrasoMs": converte para milissegundos.</summary>
@@ -209,6 +235,29 @@ public sealed record Configuracao
         {
             return new Configuracao();
         }
+    }
+
+    /// <summary>
+    /// Grava só o ModoAvancado sobre a configuração que está no disco (a última salva), sem levar
+    /// ajustes pendentes da tela. Arquivo ausente ou corrompido parte do padrão.
+    /// </summary>
+    public static void GravarModoAvancado(bool valor) => AlterarSalva(c => c with { ModoAvancado = valor });
+
+    /// <summary>Igual ao GravarModoAvancado: grava só a UltimaVersaoVista, sem levar ajustes pendentes.</summary>
+    public static void GravarUltimaVersaoVista(string versao) => AlterarSalva(c => c with { UltimaVersaoVista = versao });
+
+    private static void AlterarSalva(Func<Configuracao, Configuracao> alterar)
+    {
+        Configuracao salva;
+        try
+        {
+            salva = File.Exists(Caminho) ? Carregar(File.ReadAllText(Caminho), out _) : new Configuracao();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            salva = new Configuracao();
+        }
+        alterar(salva).SalvarNoDisco();
     }
 
     public void SalvarNoDisco()

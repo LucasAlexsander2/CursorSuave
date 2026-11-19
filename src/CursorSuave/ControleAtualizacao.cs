@@ -13,6 +13,7 @@ public enum EstadoAtualizacao
     SemNovidade,
     NovaVersao,
     Baixando,
+    Pronto,
     Erro,
     NaoInstalado
 }
@@ -27,13 +28,13 @@ public sealed record SituacaoAtualizacao(
 /// </summary>
 public sealed class ControleAtualizacao
 {
-    private readonly Atualizador _atualizador;
+    private readonly IFonteAtualizacao _atualizador;
     private readonly Action _antesDeReiniciar;
     private EstimativaDownload _estimativa = new EstimativaDownload();
     private readonly Stopwatch _relogio = new Stopwatch();
     private SituacaoAtualizacao _situacao;
 
-    public ControleAtualizacao(Atualizador atualizador, Action antesDeReiniciar)
+    public ControleAtualizacao(IFonteAtualizacao atualizador, Action antesDeReiniciar)
     {
         _atualizador = atualizador;
         _antesDeReiniciar = antesDeReiniciar;
@@ -59,7 +60,8 @@ public sealed class ControleAtualizacao
 
     public async Task VerificarAsync(bool manual)
     {
-        if (Ocupado || !_atualizador.Instalado)
+        // Pronto: já há versão baixada esperando o reinício; verificar de novo só a apagaria da tela.
+        if (Ocupado || !_atualizador.Instalado || _situacao.Estado == EstadoAtualizacao.Pronto)
         {
             return;
         }
@@ -88,11 +90,16 @@ public sealed class ControleAtualizacao
         _relogio.Restart();
         Definir(_situacao with { Estado = EstadoAtualizacao.Baixando, Percentual = 0, SegundosRestantes = null, Erro = null });
         Dispatcher? ui = Application.Current?.Dispatcher;
-        bool ok = await _atualizador.BaixarEAplicarAsync(
+        bool ok = await _atualizador.BaixarAsync(
             p =>
             {
                 void Aplicar()
                 {
+                    // CUIDADO: um progresso atrasado (BeginInvoke) pode chegar depois do fim do download.
+                    if (_situacao.Estado != EstadoAtualizacao.Baixando)
+                    {
+                        return;
+                    }
                     double? restante = _estimativa.Registrar(p, _relogio.Elapsed);
                     Definir(_situacao with { Percentual = p, SegundosRestantes = restante });
                 }
@@ -105,9 +112,13 @@ public sealed class ControleAtualizacao
                 {
                     ui.BeginInvoke(Aplicar);
                 }
-            },
-            _antesDeReiniciar);
-        if (!ok)
+            });
+        if (ok)
+        {
+            // Baixou: fica esperando o usuário reiniciar (ou a aplicação ao sair / na próxima abertura).
+            Definir(_situacao with { Estado = EstadoAtualizacao.Pronto, Percentual = 100, SegundosRestantes = null, Erro = null });
+        }
+        else
         {
             // Falhou: o app continua rodando e volta a "versão nova" com a mensagem.
             Definir(_situacao with
@@ -115,6 +126,28 @@ public sealed class ControleAtualizacao
                 Estado = EstadoAtualizacao.NovaVersao, Percentual = 0, SegundosRestantes = null,
                 Erro = Resumir(_atualizador.UltimoErro)
             });
+        }
+    }
+
+    /// <summary>Aplica a versão baixada e reinicia. Se falhar, continua em Pronto com a mensagem.</summary>
+    public void Reiniciar()
+    {
+        if (_situacao.Estado != EstadoAtualizacao.Pronto)
+        {
+            return;
+        }
+        if (!_atualizador.AplicarEReiniciar(_antesDeReiniciar))
+        {
+            Definir(_situacao with { Erro = Resumir(_atualizador.UltimoErro) });
+        }
+    }
+
+    /// <summary>Chamado no "Sair": com versão baixada, agenda a aplicação para o fim do processo.</summary>
+    public void AplicarAoSair()
+    {
+        if (_situacao.Estado == EstadoAtualizacao.Pronto)
+        {
+            _atualizador.AplicarAoSair();
         }
     }
 

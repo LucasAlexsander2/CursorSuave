@@ -20,7 +20,7 @@ public partial class JanelaConfiguracoes : Window
     private static readonly string[] CoresProntas =
         { "#FFFFFF", "#FFD60A", "#30D158", "#0A84FF", "#FF453A", "#BF5AF2" };
 
-    private readonly Configuracao _original;
+    private Configuracao _original; // troca só no interruptor Avançado, para o Cancelar não desfazê-lo
     private readonly Action<Configuracao> _previa;
     private readonly Action<Configuracao, bool> _salvar;
     private readonly List<string> _programas;
@@ -32,6 +32,14 @@ public partial class JanelaConfiguracoes : Window
     private readonly ControleAtualizacao? _atualizacao;
     private bool _carregando = true;
     private bool _salvou;
+    private bool _avancado;
+    private readonly Action<bool>? _gravarModoAvancado;
+    private readonly Action<string>? _gravarVersaoVista;
+    private readonly string _versaoAtual;
+    private readonly bool _iniciarOriginal;
+    private readonly IReadOnlyList<NotaVersao> _notas = Novidades.LerEmbutido();
+    private readonly List<(CampoTela Campo, FrameworkElement Elemento)> _campos = new();
+    private readonly List<(Button Pilula, FrameworkElement Secao)> _secoes = new();
 
     private readonly Slider SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado,
         SlAlturaBarra, SlLarguraBarra, SlOpacBolinha, SlOpacBolinhaLinks, SlOpacBolinhaParado,
@@ -42,13 +50,20 @@ public partial class JanelaConfiguracoes : Window
 
     public JanelaConfiguracoes(Configuracao original, bool iniciarComWindows,
         Action<Configuracao> previa, Action<Configuracao, bool> salvar, string versao = "",
-        Action? previaCarregando = null, ControleAtualizacao? atualizacao = null, ImageSource? icone = null)
+        Action? previaCarregando = null, ControleAtualizacao? atualizacao = null, ImageSource? icone = null,
+        Action<bool>? gravarModoAvancado = null, Action<string>? gravarVersaoVista = null, bool abrirNovidades = false)
     {
         InitializeComponent();
+        _gravarModoAvancado = gravarModoAvancado;
+        _gravarVersaoVista = gravarVersaoVista;
+        _versaoAtual = versao;
+        _iniciarOriginal = iniciarComWindows;
+        _avancado = original.ModoAvancado;
         _atualizacao = atualizacao;
         if (icone is not null)
         {
             Icon = icone;
+            ImgIcone.Source = icone;
         }
         _original = original;
         _previa = previa;
@@ -66,15 +81,19 @@ public partial class JanelaConfiguracoes : Window
             Height = MaxHeight;
         }
 
-        // Cartão Anel
+        // Cartão Anel (Reg marca as linhas que o modo Simples esconde)
         SlAnel = LinhaSlider(CartaoAnel, "Tamanho do anel", 16, 60, 1, "px", false, out _);
         TxtCor = LinhaCor(CartaoAnel, out StackPanel amostrasAnel);
         SlOpac = LinhaSlider(CartaoAnel, "Opacidade", 0.2, 1, 0.01, "%", true, out _);
-        SlOpacLinks = LinhaSlider(CartaoAnel, "Opacidade em clicáveis", 0.2, 1, 0.01, "%", true, out _);
+        SlOpacLinks = LinhaSlider(CartaoAnel, "Opacidade em clicáveis", 0.2, 1, 0.01, "%", true, out FrameworkElement linhaOpacLinks);
+        Reg(CampoTela.OpacidadeEmClicaveis, linhaOpacLinks);
         ChkFundo = Check(CartaoAnel, "Fundo leve ao passar sobre clicáveis");
+        Reg(CampoTela.FundoEmClicaveis, ChkFundo);
         SlSuav = LinhaSlider(CartaoAnel, "Atraso do anel", 0, 500, 10, "ms", false, out _);
         ChkDentro = Check(CartaoAnel, "Manter a bolinha dentro do anel");
+        Reg(CampoTela.ManterBolinhaDentro, ChkDentro);
         ChkClique = Check(CartaoAnel, "Encolher ao clicar");
+        Reg(CampoTela.EfeitoClique, ChkClique);
 
         // Cartão Bolinha (o tamanho fica fora do painel que "mesmo visual" desabilita)
         SlBolinha = LinhaSlider(PainelBolinha, "Tamanho da bolinha", 4, 12, 1, "px", false, out FrameworkElement linhaTamanho);
@@ -82,22 +101,34 @@ public partial class JanelaConfiguracoes : Window
         Panel cartaoBolinha = (Panel)PainelBolinha.Parent;
         cartaoBolinha.Children.Insert(cartaoBolinha.Children.IndexOf(PainelBolinha), linhaTamanho);
         TxtCorBolinha = LinhaCor(PainelBolinha, out StackPanel amostrasBolinha);
-        SlOpacBolinha = LinhaSlider(PainelBolinha, "Opacidade", 0.1, 1, 0.01, "%", true, out _);
-        SlOpacBolinhaLinks = LinhaSlider(PainelBolinha, "Opacidade em clicáveis", 0.1, 1, 0.01, "%", true, out _);
-        SlOpacBolinhaParado = LinhaSlider(PainelBolinha, "Opacidade parada", 0.1, 1, 0.01, "%", true, out _);
+        Reg(CampoTela.CorBolinha, PainelBolinha.Children[^1]);
+        SlOpacBolinha = LinhaSlider(PainelBolinha, "Opacidade", 0.1, 1, 0.01, "%", true, out FrameworkElement linhaOpB1);
+        SlOpacBolinhaLinks = LinhaSlider(PainelBolinha, "Opacidade em clicáveis", 0.1, 1, 0.01, "%", true, out FrameworkElement linhaOpB2);
+        SlOpacBolinhaParado = LinhaSlider(PainelBolinha, "Opacidade parada", 0.1, 1, 0.01, "%", true, out FrameworkElement linhaOpB3);
+        Reg(CampoTela.OpacidadesBolinha, linhaOpB1);
+        Reg(CampoTela.OpacidadesBolinha, linhaOpB2);
+        Reg(CampoTela.OpacidadesBolinha, linhaOpB3);
 
         // Cartão Barra de texto
         SlAlturaBarra = LinhaSlider(CartaoBarra, "Altura da barra", 8, 28, 1, "px", false, out _linhaAltura);
         SlLarguraBarra = LinhaSlider(CartaoBarra, "Largura da barra", 1, 6, 1, "px", false, out _linhaLargura);
+        Reg(CampoTela.AlturaBarra, _linhaAltura);
+        Reg(CampoTela.LarguraBarra, _linhaLargura);
 
         // Cartão Carregando
-        SlTamanhoMarcacao = LinhaSlider(CartaoMarcacao, "Tamanho do arco", 30, 270, 10, "°", false, out _);
+        SlTamanhoMarcacao = LinhaSlider(CartaoMarcacao, "Tamanho do arco", 30, 270, 10, "°", false, out FrameworkElement linhaArco);
+        Reg(CampoTela.TamanhoMarcacao, linhaArco);
         TxtCorMarcacao = LinhaCor(CartaoMarcacao, out StackPanel amostrasMarcacao);
-        SlOpacMarcacao = LinhaSlider(CartaoMarcacao, "Opacidade", 0.1, 1, 0.01, "%", true, out _);
+        SlOpacMarcacao = LinhaSlider(CartaoMarcacao, "Opacidade", 0.1, 1, 0.01, "%", true, out FrameworkElement linhaOpMarcacao);
+        Reg(CampoTela.OpacidadeMarcacao, linhaOpMarcacao);
 
         // Cartão Mouse parado
-        SlParado = LinhaSlider(CartaoParado, "Segundos até apagar", 1, 30, 1, "s", false, out _);
-        SlOpacParado = LinhaSlider(CartaoParado, "Opacidade parado do anel", 0, 0.9, 0.01, "%", true, out _);
+        SlParado = LinhaSlider(CartaoParado, "Segundos até apagar", 1, 30, 1, "s", false, out FrameworkElement linhaSeg);
+        SlOpacParado = LinhaSlider(CartaoParado, "Opacidade parado do anel", 0, 0.9, 0.01, "%", true, out FrameworkElement linhaOpParado);
+        Reg(CampoTela.SegundosParado, linhaSeg);
+        Reg(CampoTela.OpacidadeParada, linhaOpParado);
+        Reg(CampoTela.ListaProgramas, PainelProgramas);
+        ConfigurarSubmenu();
 
         AdicionarAmostras(amostrasAnel, TxtCor);
         AdicionarAmostras(amostrasBolinha, TxtCorBolinha);
@@ -120,9 +151,35 @@ public partial class JanelaConfiguracoes : Window
             {
                 AtualizarBarra();
                 PainelBolinha.IsEnabled = ChkMesmoVisual.IsChecked != true;
+                AplicarModo(); // a cor da bolinha some no Simples quando usa o visual do anel
                 Mudou();
             };
         }
+        ChkAvancado.IsChecked = _avancado;
+        AplicarModo();
+        ChkAvancado.Click += (_, _) => AoAlternarAvancado();
+        BtnNovidades.Click += (_, _) =>
+        {
+            // Sem nota para a versão atual (ex.: versão de teste 1.0.0): mostra a mais recente do arquivo.
+            NotaVersao? nota = Novidades.DaVersao(_notas, _versaoAtual) ?? Novidades.Ultima(_notas);
+            new JanelaNovidades(this, nota is null ? Array.Empty<NotaVersao>() : new[] { nota }).ShowDialog();
+        };
+        if (abrirNovidades)
+        {
+            // POR QUÊ: ContentRendered (e não o construtor) para o modal abrir já com esta janela na tela, como dona.
+            ContentRendered += (_, _) => MostrarNovidadesPendentes();
+        }
+        LinkProjeto.Click += (_, _) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(Atualizador.Repositorio) { UseShellExecute = true });
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            {
+                // Sem navegador padrão: nada a fazer.
+            }
+        };
         TxtCor.TextChanged += (_, _) =>
         {
             if (Configuracao.TentarLerCor(TxtCor.Text, out _, out _, out _))
@@ -194,6 +251,26 @@ public partial class JanelaConfiguracoes : Window
         _carregando = false;
     }
 
+    // ---------- Novidades ----------
+
+    /// <summary>Mostra (uma vez) as notas entre a última versão vista e a atual e grava na hora, sem depender do Salvar.</summary>
+    private void MostrarNovidadesPendentes()
+    {
+        string vista = _original.UltimaVersaoVista;
+        IReadOnlyList<NotaVersao> pendentes = Novidades.Pendentes(_notas, vista, _versaoAtual);
+        if (pendentes.Count > 0)
+        {
+            new JanelaNovidades(this, pendentes).ShowDialog();
+        }
+        // Mesmo sem nota no intervalo, avança a marca para não recalcular a cada abertura.
+        if (Novidades.TentarVersao(vista, out Version? v) && Novidades.TentarVersao(_versaoAtual, out Version? a) && v < a)
+        {
+            // _original acompanha para o Cancelar não devolver a marca antiga ao App.
+            _original = _original with { UltimaVersaoVista = _versaoAtual };
+            _gravarVersaoVista?.Invoke(_versaoAtual);
+        }
+    }
+
     // ---------- Atualização (o download mora no App; aqui só se mostra o estado) ----------
 
     private void AtualizarTelaAtualizacao()
@@ -234,6 +311,15 @@ public partial class JanelaConfiguracoes : Window
                     ? EstimativaDownload.Formatar(seg) + " restantes"
                     : "calculando o tempo…");
                 break;
+            case EstadoAtualizacao.Pronto:
+                texto = $"Versão {s.VersaoNova} baixada. Reinicie para aplicar.";
+                if (s.Erro is not null)
+                {
+                    texto += "\nNão foi possível reiniciar: " + s.Erro;
+                }
+                botao = "Reiniciar agora";
+                BtnAtualizacao.SetResourceReference(StyleProperty, "AccentButtonStyle");
+                break;
             case EstadoAtualizacao.Erro:
                 texto = "Não foi possível verificar: " + s.Erro;
                 botao = "Tentar de novo";
@@ -248,21 +334,31 @@ public partial class JanelaConfiguracoes : Window
         BtnAtualizacao.Content = botao;
     }
 
-    /// <summary>Pede confirmação e começa o download. Usado pelo botão e pelo "Atualizar" do menu da bandeja.</summary>
-    public async void IniciarAtualizacao()
+    /// <summary>
+    /// Começa o download (sem confirmação: baixar não fecha o app). Com a versão já baixada e
+    /// <paramref name="reiniciarSePronto"/> (clique em "Reiniciar para atualizar" do menu), reinicia.
+    /// </summary>
+    public async void IniciarAtualizacao(bool reiniciarSePronto = false)
     {
-        if (_atualizacao is null || _atualizacao.Situacao.Estado != EstadoAtualizacao.NovaVersao)
+        if (_atualizacao is null)
         {
             return;
         }
-        // Mostra o cartão Sistema: quem veio do menu pode estar com a tela rolada para o topo.
+        EstadoAtualizacao estado = _atualizacao.Situacao.Estado;
+        if (estado is not (EstadoAtualizacao.NovaVersao or EstadoAtualizacao.Pronto))
+        {
+            return;
+        }
+        // A linha de atualização mora na aba Sobre: quem veio do menu pode estar em outra aba.
+        Abas.SelectedItem = AbaSobre;
         LinhaAtualizacao.BringIntoView();
-        MessageBoxResult r = MessageBox.Show(this,
-            "O Cursor Suave vai reiniciar para atualizar. Ajustes não salvos nesta tela serão descartados. Continuar?",
-            "Atualizar", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (r == MessageBoxResult.Yes)
+        if (estado == EstadoAtualizacao.NovaVersao)
         {
             await _atualizacao.BaixarAsync();
+        }
+        else if (reiniciarSePronto)
+        {
+            ReiniciarAgora();
         }
     }
 
@@ -272,15 +368,51 @@ public partial class JanelaConfiguracoes : Window
         {
             return;
         }
-        if (_atualizacao.Situacao.Estado == EstadoAtualizacao.NovaVersao)
+        switch (_atualizacao.Situacao.Estado)
         {
-            IniciarAtualizacao();
+            case EstadoAtualizacao.NovaVersao:
+                IniciarAtualizacao();
+                break;
+            case EstadoAtualizacao.Pronto:
+                ReiniciarAgora();
+                break;
+            default:
+                // manual=false: o resultado já aparece aqui, sem balão.
+                await _atualizacao.VerificarAsync(false);
+                break;
         }
-        else
+    }
+
+    /// <summary>Ajustes ainda não salvos (compara o JSON validado, pois a lista de programas é um array novo).</summary>
+    private bool TemMudancasNaoSalvas() =>
+        Montar().Salvar() != _original.Salvar() || ChkIniciar.IsChecked != _iniciarOriginal;
+
+    private void ReiniciarAgora()
+    {
+        if (_atualizacao is null)
         {
-            // manual=false: o resultado já aparece aqui, sem balão.
-            await _atualizacao.VerificarAsync(false);
+            return;
         }
+        if (TemMudancasNaoSalvas())
+        {
+            MessageBoxResult r = MessageBox.Show(this,
+                "Há ajustes não salvos. Salvar antes de reiniciar?",
+                "Reiniciar", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (r == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+            if (r == MessageBoxResult.Yes)
+            {
+                _salvou = true;
+                _salvar(Montar(), ChkIniciar.IsChecked == true);
+            }
+            else
+            {
+                _previa(_original); // Descartar: devolve o anel à configuração salva
+            }
+        }
+        _atualizacao.Reiniciar();
     }
 
     /// <summary>Coloca os valores da configuração nos controles (sem prévia). Não mexe em programas, iniciar nem atualizar.</summary>
@@ -365,8 +497,92 @@ public partial class JanelaConfiguracoes : Window
         TamanhoMarcacao = (int)Math.Round(SlTamanhoMarcacao.Value),
         CorMarcacao = _corMarcacao,
         OpacidadeMarcacao = Math.Round(SlOpacMarcacao.Value, 2),
+        ModoAvancado = _avancado,
+        UltimaVersaoVista = _original.UltimaVersaoVista, // não é da tela: sem isto o Salvar voltaria ao padrão "1.0.5"
         ProgramasPausados = _programas.ToArray()
     }.Validar();
+
+    // ---------- Modo Simples/Avançado e submenu de seções ----------
+
+    private void Reg(CampoTela campo, UIElement elemento) => _campos.Add((campo, (FrameworkElement)elemento));
+
+    /// <summary>Só mostra/esconde: os valores dos controles escondidos seguem valendo.</summary>
+    private void AplicarModo()
+    {
+        bool mesmo = ChkMesmoVisual.IsChecked == true;
+        foreach ((CampoTela campo, FrameworkElement el) in _campos)
+        {
+            el.Visibility = ModoTela.Visivel(campo, _avancado, mesmo) ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void AoAlternarAvancado()
+    {
+        _avancado = ChkAvancado.IsChecked == true;
+        // POR QUÊ: o interruptor grava na hora e só o campo dele (via App, sobre a config salva);
+        // as mudanças pendentes da tela não são salvas nem desfeitas. _original recebe o novo valor
+        // para o Cancelar (que devolve _original ao App) não reverter o modo.
+        _original = _original with { ModoAvancado = _avancado };
+        _gravarModoAvancado?.Invoke(_avancado);
+        AplicarModo();
+    }
+
+    private void ConfigurarSubmenu()
+    {
+        (string Nome, FrameworkElement Secao)[] itens =
+        {
+            ("Geral", SecGeral), ("Anel", SecAnel), ("Bolinha", SecBolinha), ("Barra", SecBarra),
+            ("Carregando", SecCarregando), ("Parado", SecParado), ("Pausas", SecPausas)
+        };
+        foreach ((string nome, FrameworkElement secao) in itens)
+        {
+            var pilula = new Button { Content = nome, Style = (Style)FindResource("Pilula") };
+            pilula.Click += (_, _) =>
+            {
+                // Rola até o topo do cartão (BringIntoView sozinho só deixaria o cartão no rodapé da vista).
+                double y = secao.TransformToVisual(Rolagem).Transform(new Point(0, 0)).Y;
+                Rolagem.ScrollToVerticalOffset(Rolagem.VerticalOffset + y);
+                Destacar(secao);
+            };
+            Pilulas.Children.Add(pilula);
+            _secoes.Add((pilula, secao));
+        }
+        Rolagem.ScrollChanged += (_, _) => AtualizarDestaque();
+        Loaded += (_, _) => AtualizarDestaque();
+    }
+
+    /// <summary>Destaca a última seção cujo topo já passou do topo da vista (ou a última, se chegou ao fim).</summary>
+    private void AtualizarDestaque()
+    {
+        if (_secoes.Count == 0)
+        {
+            return;
+        }
+        FrameworkElement atual = _secoes[0].Secao;
+        if (Rolagem.ScrollableHeight > 0 && Rolagem.VerticalOffset >= Rolagem.ScrollableHeight - 1)
+        {
+            atual = _secoes[^1].Secao;
+        }
+        else
+        {
+            foreach ((_, FrameworkElement secao) in _secoes)
+            {
+                if (secao.TransformToVisual(Rolagem).Transform(new Point(0, 0)).Y <= 24)
+                {
+                    atual = secao;
+                }
+            }
+        }
+        Destacar(atual);
+    }
+
+    private void Destacar(FrameworkElement secao)
+    {
+        foreach ((Button pilula, FrameworkElement s) in _secoes)
+        {
+            pilula.Tag = ReferenceEquals(s, secao) ? "sel" : null;
+        }
+    }
 
     // ---------- Construção das linhas (rótulo à esquerda, controle à direita) ----------
 

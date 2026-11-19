@@ -1,0 +1,11 @@
+[
+  {
+    "versao": "1.0.6",
+    "itens": [
+      { "icone": "E8A9", "titulo": "Configurações em abas", "texto": "Agora há as abas Mouse e Sobre, com atalhos para ir direto a cada seção." },
+      { "icone": "E713", "titulo": "Modo Simples e Avançado", "texto": "O modo Simples mostra só o essencial; ligue o Avançado para ver todas as opções." },
+      { "icone": "E895", "titulo": "Atualizar pela tela Sobre", "texto": "Atualize pela tela Sobre sem fechar o app, com porcentagem e tempo restante. Reinicie quando quiser." },
+      { "icone": "E789", "titulo": "Novidades", "texto": "Esta janela aparece uma vez a cada versão, para você saber o que mudou." }
+    ]
+  }
+]

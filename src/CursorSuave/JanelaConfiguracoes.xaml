@@ -43,6 +43,32 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Pílula do submenu: destacada (Tag="sel") quando a seção está visível. -->
+        <Style x:Key="Pilula" TargetType="Button">
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Fundo" CornerRadius="14" Padding="12,4"
+                                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Tag" Value="sel">
+                                <Setter TargetName="Fundo" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Fundo" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -51,88 +77,155 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="20,16,20,4">
-                <Border Style="{StaticResource Cartao}">
-                    <StackPanel>
-                        <TextBlock Text="Anel" Style="{StaticResource TituloCartao}"/>
-                        <StackPanel x:Name="CartaoAnel"/>
+        <TabControl x:Name="Abas" Margin="12,8,12,0">
+            <TabItem x:Name="AbaMouse">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE962;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Mouse"/>
                     </StackPanel>
-                </Border>
+                </TabItem.Header>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <Border Style="{StaticResource Cartao}">
-                    <StackPanel>
-                        <TextBlock Text="Bolinha" Style="{StaticResource TituloCartao}"/>
-                        <CheckBox x:Name="ChkMesmoVisual" Content="Usar a mesma cor e opacidades do anel na bolinha" Margin="0,2"/>
-                        <StackPanel x:Name="PainelBolinha"/>
-                    </StackPanel>
-                </Border>
+                    <!-- Barra fixa: fica fora do ScrollViewer para não rolar junto com os cartões. -->
+                    <Grid Margin="8,10,8,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="Pilulas" Orientation="Horizontal"/>
+                        </ScrollViewer>
+                        <!-- Interruptor do Estilos.xaml (o mesmo do menu da bandeja). -->
+                        <ToggleButton x:Name="ChkAvancado" Grid.Column="1" Content="Avançado" Width="150" Height="32"
+                                      Margin="12,0,0,0" VerticalAlignment="Center"
+                                      Style="{StaticResource LinhaInterruptor}"/>
+                    </Grid>
 
-                <Border Style="{StaticResource Cartao}">
-                    <StackPanel>
-                        <TextBlock Text="Barra de texto" Style="{StaticResource TituloCartao}"/>
-                        <CheckBox x:Name="ChkBarra" Content="Mostrar barra em campos de texto" Margin="0,2"/>
-                        <StackPanel x:Name="CartaoBarra"/>
-                    </StackPanel>
-                </Border>
+                    <ScrollViewer x:Name="Rolagem" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="8,4,8,4">
+                            <Border x:Name="SecGeral" Style="{StaticResource Cartao}">
+                                <StackPanel>
+                                    <TextBlock Text="Geral" Style="{StaticResource TituloCartao}"/>
+                                    <CheckBox x:Name="ChkIniciar" Content="Iniciar com o Windows" Margin="0,2"/>
+                                    <CheckBox x:Name="ChkOcultar" Content="Esconder o anel em prints e gravações" Margin="0,2"/>
+                                </StackPanel>
+                            </Border>
 
-                <Border Style="{StaticResource Cartao}">
-                    <StackPanel>
-                        <TextBlock Text="Carregando" Style="{StaticResource TituloCartao}"/>
-                        <CheckBox x:Name="ChkMarcacao" Content="Trocar a ampulheta pela marcação no anel" Margin="0,2"/>
-                        <StackPanel x:Name="CartaoMarcacao"/>
-                        <Button x:Name="BtnPrevia" Content="Prévia" HorizontalAlignment="Left" Padding="14,5" Margin="0,8,0,0"/>
-                    </StackPanel>
-                </Border>
+                            <Border x:Name="SecAnel" Style="{StaticResource Cartao}">
+                                <StackPanel>
+                                    <TextBlock Text="Anel" Style="{StaticResource TituloCartao}"/>
+                                    <StackPanel x:Name="CartaoAnel"/>
+                                </StackPanel>
+                            </Border>
 
-                <Border Style="{StaticResource Cartao}">
-                    <StackPanel>
-                        <TextBlock Text="Mouse parado" Style="{StaticResource TituloCartao}"/>
-                        <CheckBox x:Name="ChkParado" Content="Apagar quando o mouse fica parado" Margin="0,2"/>
-                        <StackPanel x:Name="CartaoParado"/>
-                    </StackPanel>
-                </Border>
+                            <Border x:Name="SecBolinha" Style="{StaticResource Cartao}">
+                                <StackPanel>
+                                    <TextBlock Text="Bolinha" Style="{StaticResource TituloCartao}"/>
+                                    <CheckBox x:Name="ChkMesmoVisual" Content="Usar a mesma cor e opacidades do anel na bolinha" Margin="0,2"/>
+                                    <StackPanel x:Name="PainelBolinha"/>
+                                </StackPanel>
+                            </Border>
 
-                <Border Style="{StaticResource Cartao}">
-                    <StackPanel>
-                        <TextBlock Text="Pausas" Style="{StaticResource TituloCartao}"/>
-                        <CheckBox x:Name="ChkTelaCheia" Content="Pausar em tela cheia" Margin="0,2"/>
-                        <TextBlock Text="Programas pausados (nome do processo)" Margin="0,10,0,4"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="CmbProgramas" IsEditable="True"/>
-                            <Button x:Name="BtnAdicionar" Grid.Column="1" Content="Adicionar" Margin="8,0,0,0" Padding="12,4"/>
-                        </Grid>
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ListBox x:Name="LstProgramas" Height="90"/>
-                            <Button x:Name="BtnRemover" Grid.Column="1" Content="Remover" VerticalAlignment="Top" Margin="8,0,0,0" Padding="12,4"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                            <Border x:Name="SecBarra" Style="{StaticResource Cartao}">
+                                <StackPanel>
+                                    <TextBlock Text="Barra de texto" Style="{StaticResource TituloCartao}"/>
+                                    <CheckBox x:Name="ChkBarra" Content="Mostrar barra em campos de texto" Margin="0,2"/>
+                                    <StackPanel x:Name="CartaoBarra"/>
+                                </StackPanel>
+                            </Border>
 
-                <Border Style="{StaticResource Cartao}">
-                    <StackPanel>
-                        <TextBlock Text="Sistema" Style="{StaticResource TituloCartao}"/>
-                        <CheckBox x:Name="ChkIniciar" Content="Iniciar com o Windows" Margin="0,2"/>
-                        <CheckBox x:Name="ChkOcultar" Content="Esconder o anel em prints e gravações" Margin="0,2"/>
-                        <CheckBox x:Name="ChkAtualizar" Content="Verificar atualizações automaticamente" Margin="0,2"/>
-                        <TextBlock x:Name="TxtVersao" Margin="0,8,0,0" Opacity="0.7"/>
-                        <StackPanel x:Name="LinhaAtualizacao" Margin="0,8,0,0">
-                            <TextBlock x:Name="TxtAtualizacao" TextWrapping="Wrap" Margin="0,0,0,6"/>
-                            <ProgressBar x:Name="BarraAtualizacao" Minimum="0" Maximum="100" Height="6" Margin="0,0,0,6" Visibility="Collapsed"/>
-                            <Button x:Name="BtnAtualizacao" HorizontalAlignment="Left" Padding="14,5"/>
+                            <Border x:Name="SecCarregando" Style="{StaticResource Cartao}">
+                                <StackPanel>
+                                    <TextBlock Text="Carregando" Style="{StaticResource TituloCartao}"/>
+                                    <CheckBox x:Name="ChkMarcacao" Content="Trocar a ampulheta pela marcação no anel" Margin="0,2"/>
+                                    <StackPanel x:Name="CartaoMarcacao"/>
+                                    <Button x:Name="BtnPrevia" Content="Prévia" HorizontalAlignment="Left" Padding="14,5" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="SecParado" Style="{StaticResource Cartao}">
+                                <StackPanel>
+                                    <TextBlock Text="Mouse parado" Style="{StaticResource TituloCartao}"/>
+                                    <CheckBox x:Name="ChkParado" Content="Apagar quando o mouse fica parado" Margin="0,2"/>
+                                    <StackPanel x:Name="CartaoParado"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="SecPausas" Style="{StaticResource Cartao}">
+                                <StackPanel>
+                                    <TextBlock Text="Pausas" Style="{StaticResource TituloCartao}"/>
+                                    <CheckBox x:Name="ChkTelaCheia" Content="Pausar em tela cheia" Margin="0,2"/>
+                                    <StackPanel x:Name="PainelProgramas">
+                                        <TextBlock Text="Programas pausados (nome do processo)" Margin="0,10,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox x:Name="CmbProgramas" IsEditable="True"/>
+                                            <Button x:Name="BtnAdicionar" Grid.Column="1" Content="Adicionar" Margin="8,0,0,0" Padding="12,4"/>
+                                        </Grid>
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ListBox x:Name="LstProgramas" Height="90"/>
+                                            <Button x:Name="BtnRemover" Grid.Column="1" Content="Remover" VerticalAlignment="Top" Margin="8,0,0,0" Padding="12,4"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="AbaSobre">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Sobre"/>
                     </StackPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="8,12,8,4">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Image x:Name="ImgIcone" Width="48" Height="48" Margin="0,0,14,0"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Cursor Suave" FontSize="20" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="TxtVersao" Opacity="0.7"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Atualizações" Style="{StaticResource TituloCartao}"/>
+                                <CheckBox x:Name="ChkAtualizar" Content="Verificar atualizações automaticamente" Margin="0,2"/>
+                                <StackPanel x:Name="LinhaAtualizacao" Margin="0,8,0,0">
+                                    <TextBlock x:Name="TxtAtualizacao" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                    <ProgressBar x:Name="BarraAtualizacao" Minimum="0" Maximum="100" Height="6" Margin="0,0,0,6" Visibility="Collapsed"/>
+                                    <Button x:Name="BtnAtualizacao" HorizontalAlignment="Left" Padding="14,5"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Novidades" Style="{StaticResource TituloCartao}"/>
+                                <Button x:Name="BtnNovidades" Content="Ver novidades" HorizontalAlignment="Left" Padding="14,5"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Margin="0,4,0,0">
+                            <Hyperlink x:Name="LinkProjeto">Projeto no GitHub</Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
 
         <Grid Grid.Row="1" Margin="20,8,20,16">
             <Button x:Name="BtnRestaurar" Content="Restaurar padrão" HorizontalAlignment="Left" Padding="14,5"/>
