@@ -17,20 +17,20 @@ public sealed record Configuracao
 {
     public const string CorPadrao = "#FFFFFF";
 
-    public int TamanhoAnel { get; init; } = 26;
-    public int TamanhoBolinha { get; init; } = 6;
+    public int TamanhoAnel { get; init; } = 25;
+    public int TamanhoBolinha { get; init; } = 5;
     public string Cor { get; init; } = CorPadrao;
     public double Opacidade { get; init; } = 0.6;
     public double OpacidadeEmLinks { get; init; } = 1.0;
     public bool BarraEmTexto { get; init; } = true;
-    public int AlturaBarra { get; init; } = 18;
-    public int LarguraBarra { get; init; } = 2;
+    public int AlturaBarra { get; init; } = 14;
+    public int LarguraBarra { get; init; } = 1;
     public int AtrasoMs { get; init; } = 100;
     public bool ManterBolinhaDentro { get; init; } = true;
     public bool FundoEmLinks { get; init; } = true;
     public bool EfeitoClique { get; init; } = true;
-    public bool SumirParado { get; init; } = true;
-    public bool PausarTelaCheia { get; init; } = true;
+    public bool SumirParado { get; init; } = false;
+    public bool PausarTelaCheia { get; init; } = false;
     public bool VerificarAtualizacoes { get; init; } = true;
     public double SegundosParado { get; init; } = 3;
     public double OpacidadeParado { get; init; } = 0.3;
@@ -78,6 +78,13 @@ public sealed record Configuracao
             ProgramasPausados = programas
         };
     }
+
+    /// <summary>Padrão em todos os campos de aparência e comportamento; mantém a lista de programas pausados e VerificarAtualizacoes.</summary>
+    public Configuracao ComPadroesVisuais() => new Configuracao
+    {
+        ProgramasPausados = ProgramasPausados,
+        VerificarAtualizacoes = VerificarAtualizacoes
+    };
 
     public const double MinOpacidadeBolinha = 0.1;
 

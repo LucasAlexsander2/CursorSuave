@@ -10,7 +10,7 @@ public class ConfiguracaoTests
         var c = Configuracao.Carregar("", out bool corrompido);
         Assert.False(corrompido);
         Assert.Equal(new Configuracao(), c);
-        Assert.Equal(26, c.TamanhoAnel);
+        Assert.Equal(25, c.TamanhoAnel);
         Assert.Equal(0.3, c.OpacidadeParado);
         Assert.True(c.FundoEmLinks);
     }
@@ -160,11 +160,11 @@ public class ConfiguracaoBarraTamanhoTests
     public void Padroes_EJsonAntigo()
     {
         var c = new Configuracao();
-        Assert.Equal(18, c.AlturaBarra);
-        Assert.Equal(2, c.LarguraBarra);
+        Assert.Equal(14, c.AlturaBarra);
+        Assert.Equal(1, c.LarguraBarra);
         var antigo = Configuracao.Carregar("{\"TamanhoAnel\":30}", out _);
-        Assert.Equal(18, antigo.AlturaBarra);
-        Assert.Equal(2, antigo.LarguraBarra);
+        Assert.Equal(14, antigo.AlturaBarra);
+        Assert.Equal(1, antigo.LarguraBarra);
     }
 
     [Theory]

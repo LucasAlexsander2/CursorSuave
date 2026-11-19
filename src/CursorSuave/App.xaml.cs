@@ -358,7 +358,7 @@ public partial class App : System.Windows.Application
                 AplicarConfiguracao(cfg);
                 cfg.SalvarNoDisco();
                 DefinirInicializacao(iniciar);
-            });
+            }, _atualizador.VersaoAtual);
         janela.Closed += (_, _) => _janelaConfig = null;
         _janelaConfig = janela;
         janela.Show();
