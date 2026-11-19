@@ -43,4 +43,14 @@ public class NivelBolinhaTests
         Assert.Equal(new[] { CursorDaBolinha.Normal, CursorDaBolinha.Mao, CursorDaBolinha.Barra },
             NivelBolinha.CursoresDoDegrau(true));
     }
+
+    [Fact]
+    public void Cursores_EsperaSoEntraComMarcacaoLigada()
+    {
+        Assert.Equal(new[] { CursorDaBolinha.Normal, CursorDaBolinha.Mao, CursorDaBolinha.Espera, CursorDaBolinha.EsperaSegundoPlano },
+            NivelBolinha.CursoresDoDegrau(false, true));
+        Assert.Equal(new[] { CursorDaBolinha.Normal, CursorDaBolinha.Mao, CursorDaBolinha.Barra, CursorDaBolinha.Espera, CursorDaBolinha.EsperaSegundoPlano },
+            NivelBolinha.CursoresDoDegrau(true, true));
+        Assert.DoesNotContain(CursorDaBolinha.Espera, NivelBolinha.CursoresDoDegrau(true, false));
+    }
 }

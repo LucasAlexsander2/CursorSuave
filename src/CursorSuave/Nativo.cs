@@ -22,6 +22,8 @@ internal static class Nativo
     public const uint OCR_NORMAL = 32512;
     public const uint OCR_HAND = 32649;
     public const uint OCR_IBEAM = 32513;
+    public const uint OCR_WAIT = 32514;
+    public const uint OCR_APPSTARTING = 32650;
     public const uint SPI_SETCURSORS = 0x0057;
     public const uint SPI_GETMOUSEVANISH = 0x1020;
     public const uint SPI_SETMOUSEVANISH = 0x1021;
@@ -103,6 +105,10 @@ internal static class Nativo
     [DllImport("user32.dll")]
     public static extern IntPtr GetShellWindow();
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetClassNameW", SetLastError = true)]
     public static extern int GetClassName(IntPtr hWnd, StringBuilder className, int maxCount);
 
@@ -110,6 +116,8 @@ internal static class Nativo
     public const int VK_LBUTTON = 0x01;
     public const int VK_RBUTTON = 0x02;
     public const int IDC_HAND = 32649;
+    public const int IDC_WAIT = 32514;
+    public const int IDC_APPSTARTING = 32650;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct CURSORINFO
@@ -136,6 +144,13 @@ internal static class Nativo
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool DestroyIcon(IntPtr handle);
+
+    public const uint WDA_NONE = 0;
+    public const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint afinidade);
 
     public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     public const int DWMWA_SYSTEMBACKDROP_TYPE = 38;

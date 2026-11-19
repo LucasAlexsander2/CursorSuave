@@ -186,4 +186,73 @@ public class ConfiguracaoBarraTamanhoTests
         Assert.Equal(24, l.AlturaBarra);
         Assert.Equal(5, l.LarguraBarra);
     }
+
+    [Fact]
+    public void OcultarEmCapturas_PadraoEhTrue_InclusiveEmJsonAntigo()
+    {
+        Assert.True(new Configuracao().OcultarEmCapturas);
+        var c = Configuracao.Carregar("{\"TamanhoAnel\":30}", out bool corrompido);
+        Assert.False(corrompido);
+        Assert.True(c.OcultarEmCapturas);
+    }
+
+    [Fact]
+    public void ComPadroesVisuais_MantemOcultarEmCapturas()
+    {
+        var c = new Configuracao { OcultarEmCapturas = false, TamanhoAnel = 40 };
+        Configuracao r = c.ComPadroesVisuais();
+        Assert.False(r.OcultarEmCapturas);
+        Assert.Equal(25, r.TamanhoAnel);
+    }
+
+    [Fact]
+    public void OcultarEmCapturas_VaiEVoltaNoJson()
+    {
+        var c = new Configuracao { OcultarEmCapturas = false };
+        Assert.False(Configuracao.Carregar(c.Salvar(), out _).OcultarEmCapturas);
+    }
+
+    [Fact]
+    public void AfinidadeDaJanela_ExcluiDaCapturaOuNada()
+    {
+        Assert.Equal(0x11u, AnelNativo.AfinidadeDa(true));
+        Assert.Equal(0u, AnelNativo.AfinidadeDa(false));
+    }
+
+    [Fact]
+    public void Marcacao_Padroes()
+    {
+        var c = new Configuracao();
+        Assert.True(c.MarcacaoCarregando);
+        Assert.Equal(90, c.TamanhoMarcacao);
+        Assert.Equal("#4CC2FF", c.CorMarcacao);
+        Assert.Equal(1.0, c.OpacidadeMarcacao);
+    }
+
+    [Fact]
+    public void Marcacao_ComPadroesVisuaisInclui4Campos()
+    {
+        var c = new Configuracao { MarcacaoCarregando = false, TamanhoMarcacao = 200, CorMarcacao = "#FF0000", OpacidadeMarcacao = 0.4 };
+        var r = c.ComPadroesVisuais();
+        Assert.True(r.MarcacaoCarregando);
+        Assert.Equal(90, r.TamanhoMarcacao);
+        Assert.Equal("#4CC2FF", r.CorMarcacao);
+        Assert.Equal(1.0, r.OpacidadeMarcacao);
+    }
+
+    [Fact]
+    public void Marcacao_JsonAntigoRecebePadroes_EValidarLimita()
+    {
+        var c = Configuracao.Carregar("{ \"TamanhoAnel\": 30 }", out _);
+        Assert.True(c.MarcacaoCarregando);
+        Assert.Equal(90, c.TamanhoMarcacao);
+        Assert.Equal("#4CC2FF", c.CorMarcacao);
+        Assert.Equal(1.0, c.OpacidadeMarcacao);
+        Assert.True(c.OcultarEmCapturas);
+
+        var v = new Configuracao { TamanhoMarcacao = 500, CorMarcacao = "xx", OpacidadeMarcacao = 0 }.Validar();
+        Assert.Equal(270, v.TamanhoMarcacao);
+        Assert.Equal("#4CC2FF", v.CorMarcacao);
+        Assert.Equal(0.1, v.OpacidadeMarcacao);
+    }
 }

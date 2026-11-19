@@ -28,9 +28,33 @@ public sealed class AnelNativo : IDisposable
     private volatile bool _reiniciar;
     // Objeto imutável trocado por referência; a thread do anel só lê.
     private volatile Configuracao _config = new Configuracao();
+    private long _previaAte; // TickCount64 do fim da prévia (Volatile.Read/Write: long não é atômico em 32 bits)
     private bool _disposto;
     private IntPtr _hwnd;
     private string? _classe;
+    private int _afinidadeAplicada = -1; // só a thread do anel
+
+    /// <summary>Valor de SetWindowDisplayAffinity para a opção "esconder em capturas".</summary>
+    public static uint AfinidadeDa(bool ocultarEmCapturas) =>
+        ocultarEmCapturas ? Nativo.WDA_EXCLUDEFROMCAPTURE : Nativo.WDA_NONE;
+
+    /// <summary>Esconde (ou não) a janela de prints e gravações. Sem Windows 10 2004+ a chamada falha e o anel só aparece no print.</summary>
+    private void DefinirAfinidade(bool ocultar)
+    {
+        uint valor = AfinidadeDa(ocultar);
+        if (_afinidadeAplicada == (int)valor || _hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+        _afinidadeAplicada = (int)valor;
+        try
+        {
+            Nativo.SetWindowDisplayAffinity(_hwnd, valor);
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
+        {
+        }
+    }
 
     public AnelNativo()
     {
@@ -45,6 +69,9 @@ public sealed class AnelNativo : IDisposable
     {
         _config = config;
     }
+
+    /// <summary>Liga a marcação de carregando por 3 s (botão "Prévia" das Configurações). Sinal lido pela thread do anel.</summary>
+    public void MostrarPreviaCarregando() => Volatile.Write(ref _previaAte, Environment.TickCount64 + 3000);
 
     public void Mostrar()
     {
@@ -93,6 +120,8 @@ public sealed class AnelNativo : IDisposable
                 _classe, "CursorSuaveAnel", Win32.WS_POPUP, 0, 0, 1, 1,
                 IntPtr.Zero, IntPtr.Zero, hInstance, IntPtr.Zero);
         }
+        // Logo depois de criar, antes de a janela aparecer pela primeira vez.
+        DefinirAfinidade(_config.OcultarEmCapturas);
         _pronto.Set();
 
         try
@@ -129,6 +158,8 @@ public sealed class AnelNativo : IDisposable
         int tamanhoLogicoAtual = 0;
         Configuracao? configAplicada = null;
         byte corR = 255, corG = 255, corB = 255;
+        byte marcR = 0x4C, marcG = 0xC2, marcB = 0xFF;
+        double ultimoCarregamento = 0;
         double opacidadeParadoBolinha = 1;
         bool visivel = false;
         bool primeiro = true;
@@ -183,11 +214,13 @@ public sealed class AnelNativo : IDisposable
                 if (!ReferenceEquals(cfg, configAplicada))
                 {
                     configAplicada = cfg;
+                    DefinirAfinidade(cfg.OcultarEmCapturas); // ao vivo: a opção muda sem recriar a janela
                     _estado.Configurar(cfg.TamanhoAnel, cfg.SegundosParado, cfg.OpacidadeParado, cfg.SumirParado,
                         cfg.Opacidade, cfg.OpacidadeEmLinks);
                     _seguidor.AtrasoSegundos = cfg.AtrasoMs / 1000.0;
                     _seguidor.ManterDentro = cfg.ManterBolinhaDentro;
                     Configuracao.TentarLerCor(cfg.Cor, out corR, out corG, out corB);
+                    Configuracao.TentarLerCor(cfg.CorMarcacao, out marcR, out marcG, out marcB);
                     opacidadeParadoBolinha = cfg.VisualBolinha().OpacidadeParado;
                     ultimoX = double.NaN; // força o redesenho
                 }
@@ -197,10 +230,13 @@ public sealed class AnelNativo : IDisposable
                 var info = new Nativo.CURSORINFO { cbSize = Marshal.SizeOf<Nativo.CURSORINFO>() };
                 bool cursorVisivel = true;
                 bool sobreLink = false;
+                // A prévia das Configurações vale mesmo com a caixa desligada (serve para ver o efeito).
+                bool carregando = Environment.TickCount64 < Volatile.Read(ref _previaAte);
                 if (Nativo.GetCursorInfo(ref info))
                 {
                     cursorVisivel = (info.flags & Nativo.CURSOR_SHOWING) != 0;
                     sobreLink = CursorSistema.EhMao(info.hCursor);
+                    carregando |= cfg.MarcacaoCarregando && CursorSistema.EhCarregando(info.hCursor);
                 }
                 bool pressionado = cfg.EfeitoClique &&
                                    (Nativo.GetAsyncKeyState(Nativo.VK_LBUTTON) < 0 ||
@@ -213,7 +249,7 @@ public sealed class AnelNativo : IDisposable
                 {
                     _estado.Reiniciar();
                 }
-                _estado.Atualizar(dt, mexeu && !primeiro, pressionado, sobreLink, cursorVisivel, cfg.FundoEmLinks);
+                _estado.Atualizar(dt, mexeu && !primeiro, pressionado, sobreLink, cursorVisivel, cfg.FundoEmLinks, carregando);
                 // Bolinha e barra apagam em degraus quando o mouse fica parado (só troca se o degrau mudou).
                 int degrauBolinha = cfg.SumirParado
                     ? NivelBolinha.Calcular(_estado.SegundosSemMexer, cfg.SegundosParado, opacidadeParadoBolinha).Degrau
@@ -263,13 +299,21 @@ public sealed class AnelNativo : IDisposable
                                   Math.Abs(_estado.Preenchimento - ultimoPreench) > 0.005 ||
                                   double.IsNaN(ultimoBorda) ||
                                   Math.Abs(_estado.OpacidadeBorda - ultimoBorda) > 0.002;
-                int alpha = (int)Math.Round(_estado.Opacidade * 255);
+                // Marcação ativa: redesenha todo quadro (senão o arco fica parado); um quadro a mais ao zerar, para apagá-lo.
+                bool marcando = _estado.Carregamento > 0;
+                redesenhar |= marcando || ultimoCarregamento > 0;
+                // Com a marcação ativa a janela fica opaca e o anel apaga pelo desenho: a marcação não apaga com o mouse parado.
+                int alpha = marcando ? 255 : (int)Math.Round(_estado.Opacidade * 255);
                 if (redesenhar)
                 {
                     int metade = tamanho / 2;
                     (ultimoOx, double fx) = Subpixel.Dividir(_seguidor.X, metade);
                     (ultimoOy, double fy) = Subpixel.Dividir(_seguidor.Y, metade);
-                    Desenhar(g!, metade + fx, metade + fy, escala, diametro, _estado.Preenchimento, corR, corG, corB, _estado.OpacidadeBorda);
+                    Desenhar(g!, metade + fx, metade + fy, escala, diametro, _estado.Preenchimento, corR, corG, corB, _estado.OpacidadeBorda,
+                        marcando ? _estado.Opacidade : 1,
+                        new Marcacao(_estado.Carregamento, _estado.AnguloCarregamento, cfg.TamanhoMarcacao,
+                            marcR, marcG, marcB, cfg.OpacidadeMarcacao));
+                    ultimoCarregamento = _estado.Carregamento;
                     ultimoX = _seguidor.X;
                     ultimoY = _seguidor.Y;
                     ultimoDiametro = diametro;
@@ -334,19 +378,23 @@ public sealed class AnelNativo : IDisposable
         }
     }
 
+    private readonly record struct Marcacao(double Intensidade, double Angulo, int Graus, byte R, byte G, byte B, double Opacidade);
+
     private static void Desenhar(Graphics g, double cx, double cy, double escala, double diametro, double preenchimento,
-        byte r, byte gc, byte b, double opacidade)
+        byte r, byte gc, byte b, double opacidade, double fatorAnel, Marcacao marcacao)
     {
         g.Clear(Color.Transparent);
 
         // Elipse (diâmetro + 2) com traço 1 (#66000000) e elipse (diâmetro) com traço 2 (#99FFFFFF);
         // o traço fica por dentro das medidas, então o raio da linha central é (diâmetro - traço) / 2.
-        using var contorno = new Pen(Color.FromArgb(0x66, 0, 0, 0), (float)(1 * escala));
+        // fatorAnel < 1 só quando a marcação está ativa: a janela fica opaca e o anel apaga pelo desenho.
+        opacidade *= fatorAnel;
+        using var contorno = new Pen(Color.FromArgb((int)Math.Round(0x66 * fatorAnel), 0, 0, 0), (float)(1 * escala));
         double r1 = (diametro + 2 - 1) / 2.0 * escala;
         g.DrawEllipse(contorno, (float)(cx - r1), (float)(cy - r1), (float)(2 * r1), (float)(2 * r1));
 
         double r2 = (diametro - 2) / 2.0 * escala;
-        int alfaPreench = (int)Math.Round(0x1A * Math.Clamp(preenchimento, 0, 1)); // branco a 10%
+        int alfaPreench = (int)Math.Round(0x1A * Math.Clamp(preenchimento, 0, 1) * fatorAnel); // branco a 10%
         if (alfaPreench > 0)
         {
             using var fundo = new SolidBrush(Color.FromArgb(alfaPreench, r, gc, b));
@@ -355,6 +403,19 @@ public sealed class AnelNativo : IDisposable
 
         using var borda = new Pen(Color.FromArgb((int)Math.Round(Math.Clamp(opacidade, 0, 1) * 255), r, gc, b), (float)(2 * escala));
         g.DrawEllipse(borda, (float)(cx - r2), (float)(cy - r2), (float)(2 * r2), (float)(2 * r2));
+
+        if (marcacao.Intensidade > 0)
+        {
+            // Arco no mesmo raio da borda, 1 px mais grosso, pontas redondas, horário (GDI+ conta o ângulo no sentido horário).
+            int alfa = (int)Math.Round(Math.Clamp(marcacao.Opacidade * marcacao.Intensidade, 0, 1) * 255);
+            using var arco = new Pen(Color.FromArgb(alfa, marcacao.R, marcacao.G, marcacao.B), (float)(3 * escala))
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+            g.DrawArc(arco, (float)(cx - r2), (float)(cy - r2), (float)(2 * r2), (float)(2 * r2),
+                (float)(marcacao.Angulo - 90), marcacao.Graus);
+        }
     }
 
     private static IntPtr CriarDib(IntPtr hdc, int tamanho, out IntPtr bits)

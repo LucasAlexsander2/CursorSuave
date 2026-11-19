@@ -138,6 +138,7 @@ public static class CursorSistema
         {
             CursorDaBolinha.Barra => degrau == 0 ? "barra.cur" : $"barra-n{degrau}.cur",
             CursorDaBolinha.Mao => $"ponto-mao-n{degrau}.cur",
+            // Os de espera usam o arquivo da bolinha normal (um LoadCursorFromFile por cursor trocado).
             _ => degrau == 0 ? "ponto.cur" : $"ponto-n{degrau}.cur"
         });
 
@@ -145,6 +146,8 @@ public static class CursorSistema
     {
         CursorDaBolinha.Barra => Nativo.OCR_IBEAM,
         CursorDaBolinha.Mao => Nativo.OCR_HAND,
+        CursorDaBolinha.Espera => Nativo.OCR_WAIT,
+        CursorDaBolinha.EsperaSegundoPlano => Nativo.OCR_APPSTARTING,
         _ => Nativo.OCR_NORMAL
     };
 
@@ -152,13 +155,30 @@ public static class CursorSistema
     private static bool? _vanishOriginal;
     private static volatile IntPtr _maoAplicada;
     private static volatile IntPtr _maoArquivo;
+    // Handles dos cursores de espera (ampulheta e seta com círculo): do sistema e dos arquivos trocados.
+    private static volatile IntPtr _esperaAplicada;
+    private static volatile IntPtr _esperaArquivo;
+    private static volatile IntPtr _segPlanoAplicada;
+    private static volatile IntPtr _segPlanoArquivo;
 
     // Estado das trocas: lido/escrito com _trava (thread do anel e thread da interface).
     private static readonly object _trava = new();
     private static bool _aplicado;
     private static volatile int _nivel;
     private static bool _barraAtiva;
+    private static bool _marcacaoAtiva;
     private static int _maxDegrau;
+
+    /// <summary>O cursor atual é a ampulheta ou a seta com círculo (já trocados pela bolinha)?</summary>
+    public static bool EhCarregando(IntPtr hCursor)
+    {
+        if (hCursor == IntPtr.Zero)
+        {
+            return false;
+        }
+        return hCursor == _esperaAplicada || hCursor == _esperaArquivo
+            || hCursor == _segPlanoAplicada || hCursor == _segPlanoArquivo;
+    }
 
     /// <summary>O cursor atual é a mão trocada pela bolinha (sobre um link)?</summary>
     public static bool EhMao(IntPtr hCursor)
@@ -183,6 +203,12 @@ public static class CursorSistema
             {
                 Directory.CreateDirectory(Pasta);
                 _barraAtiva = cfg.BarraEmTexto;
+                // Marcação desligada depois de ligada: recarrega os originais (a ampulheta de volta); TrocarCursores reaplica o resto.
+                if (_aplicado && _marcacaoAtiva && !cfg.MarcacaoCarregando)
+                {
+                    Nativo.SystemParametersInfo(Nativo.SPI_SETCURSORS, 0, IntPtr.Zero, 0);
+                }
+                _marcacaoAtiva = cfg.MarcacaoCarregando;
                 // Sem apagar quando parado (opacidade 1): só existe o degrau 0.
                 _maxDegrau = v.OpacidadeParado >= 1 ? 0 : NivelBolinha.Degraus;
                 if (_nivel > _maxDegrau)
@@ -205,6 +231,8 @@ public static class CursorSistema
                 _aplicado = true;
                 TrocarCursores(_nivel);
                 DesligarOcultarAoDigitar();
+                // Depois de DesligarOcultarAoDigitar, que guarda o valor original que o guardião devolve.
+                Sessao.Gravar(Sessao.CaminhoPadrao, new Sessao(Environment.ProcessId, _vanishOriginal));
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -217,12 +245,17 @@ public static class CursorSistema
     /// cursor, porque o SetSystemCursor destrói o handle recebido.</summary>
     private static void TrocarCursores(int degrau)
     {
-        foreach (CursorDaBolinha tipo in NivelBolinha.CursoresDoDegrau(_barraAtiva))
+        // Sem a marcação, os handles de espera ficam zerados (EhCarregando falso).
+        _esperaArquivo = _segPlanoArquivo = _esperaAplicada = _segPlanoAplicada = IntPtr.Zero;
+        foreach (CursorDaBolinha tipo in NivelBolinha.CursoresDoDegrau(_barraAtiva, _marcacaoAtiva))
         {
-            IntPtr h = Nativo.LoadCursorFromFile(CaminhoArquivo(tipo, degrau));
-            if (tipo == CursorDaBolinha.Mao)
+            IntPtr h = Nativo.LoadCursorFromFile(CaminhoArquivo(tipo == CursorDaBolinha.Espera
+                || tipo == CursorDaBolinha.EsperaSegundoPlano ? CursorDaBolinha.Normal : tipo, degrau));
+            switch (tipo)
             {
-                _maoArquivo = h;
+                case CursorDaBolinha.Mao: _maoArquivo = h; break;
+                case CursorDaBolinha.Espera: _esperaArquivo = h; break;
+                case CursorDaBolinha.EsperaSegundoPlano: _segPlanoArquivo = h; break;
             }
             if (h != IntPtr.Zero)
             {
@@ -230,6 +263,11 @@ public static class CursorSistema
             }
         }
         _maoAplicada = Nativo.LoadCursor(IntPtr.Zero, (IntPtr)Nativo.IDC_HAND);
+        if (_marcacaoAtiva)
+        {
+            _esperaAplicada = Nativo.LoadCursor(IntPtr.Zero, (IntPtr)Nativo.IDC_WAIT);
+            _segPlanoAplicada = Nativo.LoadCursor(IntPtr.Zero, (IntPtr)Nativo.IDC_APPSTARTING);
+        }
     }
 
     /// <summary>Muda para o degrau (0 a 4) de apagar. Não faz nada se o degrau não mudou ou se
@@ -277,7 +315,11 @@ public static class CursorSistema
             }
             _maoAplicada = IntPtr.Zero;
             _maoArquivo = IntPtr.Zero;
+            _marcacaoAtiva = false;
+            _esperaAplicada = _esperaArquivo = _segPlanoAplicada = _segPlanoArquivo = IntPtr.Zero;
             Nativo.SystemParametersInfo(Nativo.SPI_SETCURSORS, 0, IntPtr.Zero, 0);
+            // Arquivo apagado = fechamento limpo; o guardião não faz nada.
+            Sessao.Apagar(Sessao.CaminhoPadrao);
         }
     }
 }

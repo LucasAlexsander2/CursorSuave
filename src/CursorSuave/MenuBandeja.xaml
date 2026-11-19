@@ -1,0 +1,140 @@
+<Window x:Class="CursorSuave.MenuBandeja"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        ThemeMode="System"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
+        Width="300" SizeToContent="Height" WindowStartupLocation="Manual"
+        UseLayoutRounding="True">
+    <Window.Resources>
+        <!-- Linha de botão: 40 px, fundo só no hover (cinza translúcido funciona nos dois temas). -->
+        <Style x:Key="LinhaMenu" TargetType="Button">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Fundo" Background="{TemplateBinding Background}" CornerRadius="6" Margin="4,1" Padding="12,0">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Fundo" Property="Background" Value="#22808080"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Fundo" Property="Background" Value="#33808080"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Interruptor: a linha inteira é o ToggleButton; a pílula fica à direita. -->
+        <Style x:Key="LinhaInterruptor" TargetType="ToggleButton">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Fundo" Background="Transparent" CornerRadius="6" Margin="4,1" Padding="12,0">
+                            <Grid>
+                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                <Border x:Name="Pilula" Width="40" Height="20" CornerRadius="10" HorizontalAlignment="Right"
+                                        BorderThickness="1" Background="Transparent"
+                                        BorderBrush="{DynamicResource TextFillColorSecondaryBrush}">
+                                    <Ellipse x:Name="Bolinha" Width="12" Height="12" HorizontalAlignment="Left" Margin="4,0,0,0"
+                                             Fill="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Fundo" Property="Background" Value="#22808080"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Pilula" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+                                <Setter TargetName="Pilula" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+                                <Setter TargetName="Bolinha" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="Bolinha" Property="Margin" Value="0,0,4,0"/>
+                                <Setter TargetName="Bolinha" Property="Fill" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Icone" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderThickness="1" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" CornerRadius="8" Padding="0,8">
+        <StackPanel>
+            <!-- Cabeçalho -->
+            <StackPanel Orientation="Horizontal" Margin="16,4,16,8">
+                <Image x:Name="ImgIcone" Width="28" Height="28" Margin="0,0,10,0"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Cursor Suave" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="TxtVersao" Opacity="0.7" FontSize="12"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Faixa de atualização: só com versão nova -->
+            <Border x:Name="FaixaAtualizacao" Visibility="Collapsed" Margin="8,0,8,6" Padding="12,8" CornerRadius="6"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtAtualizacao" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <Button x:Name="BtnAtualizar" Grid.Column="1" Content="Atualizar" Padding="12,4" Margin="8,0,0,0"
+                            Style="{DynamicResource AccentButtonStyle}"/>
+                </Grid>
+            </Border>
+
+            <ToggleButton x:Name="TglAtivo" Content="Ativo" Style="{StaticResource LinhaInterruptor}"/>
+            <ToggleButton x:Name="TglPausar" Content="Pausar em tela cheia" Style="{StaticResource LinhaInterruptor}"/>
+            <ToggleButton x:Name="TglIniciar" Content="Iniciar com o Windows" Style="{StaticResource LinhaInterruptor}"/>
+
+            <Rectangle Height="1" Margin="12,6" Fill="{DynamicResource CardStrokeColorDefaultBrush}"/>
+
+            <Button x:Name="BtnConfig" Style="{StaticResource LinhaMenu}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icone}" Text="&#xE713;"/>
+                    <TextBlock Text="Configurações" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="BtnVerificar" Style="{StaticResource LinhaMenu}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icone}" Text="&#xE895;"/>
+                    <TextBlock x:Name="TxtVerificar" Text="Verificar atualizações" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="BtnRestaurar" Style="{StaticResource LinhaMenu}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icone}" Text="&#xE777;"/>
+                    <TextBlock Text="Restaurar cursor padrão" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <Rectangle Height="1" Margin="12,6" Fill="{DynamicResource CardStrokeColorDefaultBrush}"/>
+
+            <Button x:Name="BtnSair" Style="{StaticResource LinhaMenu}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icone}" Text="&#xE7E8;" Foreground="#E5484D"/>
+                    <TextBlock Text="Sair" VerticalAlignment="Center" Foreground="#E5484D"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Border>
+</Window>

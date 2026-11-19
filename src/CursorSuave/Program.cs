@@ -16,6 +16,13 @@ public static class Program
             .OnBeforeUninstallFastCallback(_ => Desinstalacao.Preparar())
             .Run();
 
+        // Modo guardião: sem mutex, janela ou bandeja; só vigia o processo principal.
+        if (Guardiao.TentarLerArgumentos(args, out int pidPrincipal))
+        {
+            Guardiao.Executar(pidPrincipal);
+            return;
+        }
+
         var app = new App();
         app.InitializeComponent();
         app.Run();

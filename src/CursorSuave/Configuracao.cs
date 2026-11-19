@@ -27,6 +27,7 @@ public sealed record Configuracao
     public int LarguraBarra { get; init; } = 1;
     public int AtrasoMs { get; init; } = 100;
     public bool ManterBolinhaDentro { get; init; } = true;
+    public bool OcultarEmCapturas { get; init; } = true;
     public bool FundoEmLinks { get; init; } = true;
     public bool EfeitoClique { get; init; } = true;
     public bool SumirParado { get; init; } = false;
@@ -40,6 +41,11 @@ public sealed record Configuracao
     public string CorBolinha { get; init; } = CorPadrao;
     public bool MesmoVisualBolinhaAnel { get; init; } = false;
     public IReadOnlyList<string> ProgramasPausados { get; init; } = Array.Empty<string>();
+    // Marcação de carregando (5b): arco girando sobre a borda do anel no lugar da ampulheta.
+    public bool MarcacaoCarregando { get; init; } = true;
+    public int TamanhoMarcacao { get; init; } = 90;
+    public string CorMarcacao { get; init; } = "#4CC2FF";
+    public double OpacidadeMarcacao { get; init; } = 1.0;
 
     private static readonly JsonSerializerOptions Opcoes = new()
     {
@@ -75,15 +81,19 @@ public sealed record Configuracao
             OpacidadeBolinhaEmLinks = Limitar(OpacidadeBolinhaEmLinks, MinOpacidadeBolinha, 1, 1.0),
             OpacidadeBolinhaParado = Limitar(OpacidadeBolinhaParado, MinOpacidadeBolinha, 1, 1.0),
             CorBolinha = TentarLerCor(CorBolinha, out _, out _, out _) ? NormalizarCor(CorBolinha) : CorPadrao,
+            TamanhoMarcacao = Math.Clamp(TamanhoMarcacao, 30, 270),
+            CorMarcacao = TentarLerCor(CorMarcacao, out _, out _, out _) ? NormalizarCor(CorMarcacao) : "#4CC2FF",
+            OpacidadeMarcacao = Limitar(OpacidadeMarcacao, 0.1, 1, 1.0),
             ProgramasPausados = programas
         };
     }
 
-    /// <summary>Padrão em todos os campos de aparência e comportamento; mantém a lista de programas pausados e VerificarAtualizacoes.</summary>
+    /// <summary>Padrão em todos os campos de aparência e comportamento; mantém a lista de programas pausados, VerificarAtualizacoes e OcultarEmCapturas.</summary>
     public Configuracao ComPadroesVisuais() => new Configuracao
     {
         ProgramasPausados = ProgramasPausados,
-        VerificarAtualizacoes = VerificarAtualizacoes
+        VerificarAtualizacoes = VerificarAtualizacoes,
+        OcultarEmCapturas = OcultarEmCapturas // opção do cartão Sistema: não volta ao padrão
     };
 
     public const double MinOpacidadeBolinha = 0.1;

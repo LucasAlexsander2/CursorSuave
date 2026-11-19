@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace CursorSuave;
 
-public enum CursorDaBolinha { Normal, Mao, Barra }
+public enum CursorDaBolinha { Normal, Mao, Barra, Espera, EsperaSegundoPlano }
 
 /// <summary>Lógica pura dos degraus de apagar da bolinha (e da barra) quando o mouse fica parado.</summary>
 public static class NivelBolinha
@@ -35,9 +35,19 @@ public static class NivelBolinha
         return 1 + (o - 1) * degrau / Degraus;
     }
 
-    /// <summary>Cursores trocados em cada degrau: normal e mão sempre; a barra só se ligada.</summary>
-    public static IReadOnlyList<CursorDaBolinha> CursoresDoDegrau(bool barraEmTexto) =>
-        barraEmTexto
-            ? new[] { CursorDaBolinha.Normal, CursorDaBolinha.Mao, CursorDaBolinha.Barra }
-            : new[] { CursorDaBolinha.Normal, CursorDaBolinha.Mao };
+    /// <summary>Cursores trocados em cada degrau: normal e mão sempre; a barra e os de espera só se ligados.</summary>
+    public static IReadOnlyList<CursorDaBolinha> CursoresDoDegrau(bool barraEmTexto, bool marcacaoCarregando = false)
+    {
+        var lista = new List<CursorDaBolinha> { CursorDaBolinha.Normal, CursorDaBolinha.Mao };
+        if (barraEmTexto)
+        {
+            lista.Add(CursorDaBolinha.Barra);
+        }
+        if (marcacaoCarregando)
+        {
+            lista.Add(CursorDaBolinha.Espera);
+            lista.Add(CursorDaBolinha.EsperaSegundoPlano);
+        }
+        return lista;
+    }
 }

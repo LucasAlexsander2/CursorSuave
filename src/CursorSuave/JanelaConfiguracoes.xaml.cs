@@ -27,22 +27,34 @@ public partial class JanelaConfiguracoes : Window
     private readonly List<(StackPanel Painel, TextBox Campo)> _amostras = new();
     private string _cor;
     private string _corBolinha;
+    private string _corMarcacao;
+    private readonly Action? _previaCarregando;
+    private readonly ControleAtualizacao? _atualizacao;
     private bool _carregando = true;
     private bool _salvou;
 
     private readonly Slider SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado,
-        SlAlturaBarra, SlLarguraBarra, SlOpacBolinha, SlOpacBolinhaLinks, SlOpacBolinhaParado;
+        SlAlturaBarra, SlLarguraBarra, SlOpacBolinha, SlOpacBolinhaLinks, SlOpacBolinhaParado,
+        SlTamanhoMarcacao, SlOpacMarcacao;
     private readonly CheckBox ChkDentro, ChkFundo, ChkClique;
-    private readonly TextBox TxtCor, TxtCorBolinha;
+    private readonly TextBox TxtCor, TxtCorBolinha, TxtCorMarcacao;
     private readonly FrameworkElement _linhaAltura, _linhaLargura;
 
     public JanelaConfiguracoes(Configuracao original, bool iniciarComWindows,
-        Action<Configuracao> previa, Action<Configuracao, bool> salvar, string versao = "")
+        Action<Configuracao> previa, Action<Configuracao, bool> salvar, string versao = "",
+        Action? previaCarregando = null, ControleAtualizacao? atualizacao = null, ImageSource? icone = null)
     {
         InitializeComponent();
+        _atualizacao = atualizacao;
+        if (icone is not null)
+        {
+            Icon = icone;
+        }
         _original = original;
         _previa = previa;
         _salvar = salvar;
+        _previaCarregando = previaCarregando;
+        _corMarcacao = original.CorMarcacao;
         _programas = original.ProgramasPausados.ToList();
         _cor = original.Cor;
         _corBolinha = original.CorBolinha;
@@ -78,12 +90,18 @@ public partial class JanelaConfiguracoes : Window
         SlAlturaBarra = LinhaSlider(CartaoBarra, "Altura da barra", 8, 28, 1, "px", false, out _linhaAltura);
         SlLarguraBarra = LinhaSlider(CartaoBarra, "Largura da barra", 1, 6, 1, "px", false, out _linhaLargura);
 
+        // Cartão Carregando
+        SlTamanhoMarcacao = LinhaSlider(CartaoMarcacao, "Tamanho do arco", 30, 270, 10, "°", false, out _);
+        TxtCorMarcacao = LinhaCor(CartaoMarcacao, out StackPanel amostrasMarcacao);
+        SlOpacMarcacao = LinhaSlider(CartaoMarcacao, "Opacidade", 0.1, 1, 0.01, "%", true, out _);
+
         // Cartão Mouse parado
         SlParado = LinhaSlider(CartaoParado, "Segundos até apagar", 1, 30, 1, "s", false, out _);
         SlOpacParado = LinhaSlider(CartaoParado, "Opacidade parado do anel", 0, 0.9, 0.01, "%", true, out _);
 
         AdicionarAmostras(amostrasAnel, TxtCor);
         AdicionarAmostras(amostrasBolinha, TxtCorBolinha);
+        AdicionarAmostras(amostrasMarcacao, TxtCorMarcacao);
 
         LstProgramas.ItemsSource = _programas;
         CmbProgramas.ItemsSource = ProcessosComJanela();
@@ -92,11 +110,11 @@ public partial class JanelaConfiguracoes : Window
         TxtVersao.Text = string.IsNullOrWhiteSpace(versao) ? string.Empty : "Versão atual: " + versao;
         Aplicar(original);
 
-        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado, SlAlturaBarra, SlLarguraBarra, SlOpacBolinha, SlOpacBolinhaLinks, SlOpacBolinhaParado })
+        foreach (Slider s in new[] { SlAnel, SlBolinha, SlOpac, SlOpacLinks, SlSuav, SlParado, SlOpacParado, SlAlturaBarra, SlLarguraBarra, SlOpacBolinha, SlOpacBolinhaLinks, SlOpacBolinhaParado, SlTamanhoMarcacao, SlOpacMarcacao })
         {
             s.ValueChanged += (_, _) => Mudou();
         }
-        foreach (CheckBox c in new[] { ChkDentro, ChkFundo, ChkBarra, ChkClique, ChkParado, ChkTelaCheia, ChkMesmoVisual })
+        foreach (CheckBox c in new[] { ChkDentro, ChkFundo, ChkBarra, ChkClique, ChkParado, ChkTelaCheia, ChkMesmoVisual, ChkMarcacao })
         {
             c.Click += (_, _) =>
             {
@@ -120,6 +138,20 @@ public partial class JanelaConfiguracoes : Window
                 _corBolinha = TxtCorBolinha.Text;
                 Mudou();
             }
+        };
+        TxtCorMarcacao.TextChanged += (_, _) =>
+        {
+            if (Configuracao.TentarLerCor(TxtCorMarcacao.Text, out _, out _, out _))
+            {
+                _corMarcacao = TxtCorMarcacao.Text;
+                Mudou();
+            }
+        };
+        // A prévia usa a configuração atual da tela (já enviada ao anel por Mudou) e liga a marcação por 3 s.
+        BtnPrevia.Click += (_, _) =>
+        {
+            _previa(Montar());
+            _previaCarregando?.Invoke();
         };
         BtnAdicionar.Click += (_, _) => Adicionar();
         BtnRemover.Click += (_, _) =>
@@ -146,25 +178,108 @@ public partial class JanelaConfiguracoes : Window
                 _previa(_original);
             }
         };
-        SourceInitialized += (_, _) => AplicarEstiloWindows11();
+        SourceInitialized += (_, _) => EstiloJanela.AplicarWindows11(this);
+
+        // O download é do App; a janela só assina o progresso e desassina ao fechar
+        // (ao reabrir durante o download, assina de novo e lê o estado atual).
+        if (_atualizacao is not null)
+        {
+            void Refletir() => Dispatcher.Invoke(AtualizarTelaAtualizacao);
+            _atualizacao.Mudou += Refletir;
+            Closed += (_, _) => _atualizacao.Mudou -= Refletir;
+            BtnAtualizacao.Click += (_, _) => AoClicarAtualizacao();
+        }
+        AtualizarTelaAtualizacao();
 
         _carregando = false;
     }
 
-    /// <summary>Cantos arredondados e fundo Mica; no Windows 10 as chamadas falham e são ignoradas.</summary>
-    private void AplicarEstiloWindows11()
+    // ---------- Atualização (o download mora no App; aqui só se mostra o estado) ----------
+
+    private void AtualizarTelaAtualizacao()
     {
-        try
+        if (_atualizacao is null)
         {
-            IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            int cantos = 2;   // DWMWCP_ROUND
-            int mica = 2;     // DWMSBT_MAINWINDOW
-            _ = Nativo.DwmSetWindowAttribute(hwnd, Nativo.DWMWA_WINDOW_CORNER_PREFERENCE, ref cantos, sizeof(int));
-            _ = Nativo.DwmSetWindowAttribute(hwnd, Nativo.DWMWA_SYSTEMBACKDROP_TYPE, ref mica, sizeof(int));
+            LinhaAtualizacao.Visibility = Visibility.Collapsed;
+            return;
         }
-        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        SituacaoAtualizacao s = _atualizacao.Situacao;
+        BarraAtualizacao.Visibility = s.Estado == EstadoAtualizacao.Baixando ? Visibility.Visible : Visibility.Collapsed;
+        BtnAtualizacao.Visibility = s.Estado == EstadoAtualizacao.Baixando ? Visibility.Collapsed : Visibility.Visible;
+        BtnAtualizacao.IsEnabled = true;
+        BtnAtualizacao.ClearValue(StyleProperty);
+        string texto = string.Empty;
+        string botao = "Verificar atualizações";
+        switch (s.Estado)
         {
-            // Sem suporte do sistema: segue com o visual do tema.
+            case EstadoAtualizacao.Verificando:
+                botao = "Verificando…";
+                BtnAtualizacao.IsEnabled = false;
+                break;
+            case EstadoAtualizacao.SemNovidade:
+                texto = "Você está na versão mais recente.";
+                break;
+            case EstadoAtualizacao.NovaVersao:
+                texto = $"Versão {s.VersaoNova} disponível";
+                if (s.Erro is not null)
+                {
+                    texto += "\nNão foi possível atualizar: " + s.Erro;
+                }
+                botao = "Atualizar agora";
+                BtnAtualizacao.SetResourceReference(StyleProperty, "AccentButtonStyle");
+                break;
+            case EstadoAtualizacao.Baixando:
+                BarraAtualizacao.Value = s.Percentual;
+                texto = $"{s.Percentual}% · " + (s.SegundosRestantes is double seg
+                    ? EstimativaDownload.Formatar(seg) + " restantes"
+                    : "calculando o tempo…");
+                break;
+            case EstadoAtualizacao.Erro:
+                texto = "Não foi possível verificar: " + s.Erro;
+                botao = "Tentar de novo";
+                break;
+            case EstadoAtualizacao.NaoInstalado:
+                texto = "Atualizações só na versão instalada.";
+                BtnAtualizacao.IsEnabled = false;
+                break;
+        }
+        TxtAtualizacao.Text = texto;
+        TxtAtualizacao.Visibility = texto.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        BtnAtualizacao.Content = botao;
+    }
+
+    /// <summary>Pede confirmação e começa o download. Usado pelo botão e pelo "Atualizar" do menu da bandeja.</summary>
+    public async void IniciarAtualizacao()
+    {
+        if (_atualizacao is null || _atualizacao.Situacao.Estado != EstadoAtualizacao.NovaVersao)
+        {
+            return;
+        }
+        // Mostra o cartão Sistema: quem veio do menu pode estar com a tela rolada para o topo.
+        LinhaAtualizacao.BringIntoView();
+        MessageBoxResult r = MessageBox.Show(this,
+            "O Cursor Suave vai reiniciar para atualizar. Ajustes não salvos nesta tela serão descartados. Continuar?",
+            "Atualizar", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (r == MessageBoxResult.Yes)
+        {
+            await _atualizacao.BaixarAsync();
+        }
+    }
+
+    private async void AoClicarAtualizacao()
+    {
+        if (_atualizacao is null)
+        {
+            return;
+        }
+        if (_atualizacao.Situacao.Estado == EstadoAtualizacao.NovaVersao)
+        {
+            IniciarAtualizacao();
+        }
+        else
+        {
+            // manual=false: o resultado já aparece aqui, sem balão.
+            await _atualizacao.VerificarAsync(false);
         }
     }
 
@@ -188,6 +303,7 @@ public partial class JanelaConfiguracoes : Window
         ChkClique.IsChecked = c.EfeitoClique;
         ChkParado.IsChecked = c.SumirParado;
         ChkTelaCheia.IsChecked = c.PausarTelaCheia;
+        ChkOcultar.IsChecked = c.OcultarEmCapturas;
         _cor = c.Cor;
         _corBolinha = c.CorBolinha;
         TxtCor.Text = c.Cor;
@@ -196,6 +312,11 @@ public partial class JanelaConfiguracoes : Window
         SlOpacBolinhaLinks.Value = c.OpacidadeBolinhaEmLinks;
         SlOpacBolinhaParado.Value = c.OpacidadeBolinhaParado;
         ChkMesmoVisual.IsChecked = c.MesmoVisualBolinhaAnel;
+        ChkMarcacao.IsChecked = c.MarcacaoCarregando;
+        SlTamanhoMarcacao.Value = c.TamanhoMarcacao;
+        SlOpacMarcacao.Value = c.OpacidadeMarcacao;
+        _corMarcacao = c.CorMarcacao;
+        TxtCorMarcacao.Text = c.CorMarcacao;
         PainelBolinha.IsEnabled = !c.MesmoVisualBolinhaAnel;
         AtualizarBarra();
         _carregando = antes;
@@ -232,6 +353,7 @@ public partial class JanelaConfiguracoes : Window
         SumirParado = ChkParado.IsChecked == true,
         PausarTelaCheia = ChkTelaCheia.IsChecked == true,
         VerificarAtualizacoes = ChkAtualizar.IsChecked == true,
+        OcultarEmCapturas = ChkOcultar.IsChecked == true,
         SegundosParado = Math.Round(SlParado.Value),
         OpacidadeParado = Math.Round(SlOpacParado.Value, 2),
         OpacidadeBolinha = Math.Round(SlOpacBolinha.Value, 2),
@@ -239,6 +361,10 @@ public partial class JanelaConfiguracoes : Window
         OpacidadeBolinhaParado = Math.Round(SlOpacBolinhaParado.Value, 2),
         CorBolinha = _corBolinha,
         MesmoVisualBolinhaAnel = ChkMesmoVisual.IsChecked == true,
+        MarcacaoCarregando = ChkMarcacao.IsChecked == true,
+        TamanhoMarcacao = (int)Math.Round(SlTamanhoMarcacao.Value),
+        CorMarcacao = _corMarcacao,
+        OpacidadeMarcacao = Math.Round(SlOpacMarcacao.Value, 2),
         ProgramasPausados = _programas.ToArray()
     }.Validar();
 

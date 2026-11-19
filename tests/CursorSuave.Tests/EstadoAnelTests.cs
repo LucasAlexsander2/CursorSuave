@@ -73,7 +73,47 @@ public class EstadoAnelTests
         Assert.InRange(e.Preenchimento, 0, 1);
         Assert.InRange(op, 0, 1);
     }
+
+    [Fact]
+    public void Carregamento_SobeEm120msEDesceEm200ms()
+    {
+        var e = new EstadoAnel();
+        double dt = 0.01;
+        for (int i = 0; i < 6; i++) e.Atualizar(dt, false, false, false, true, true, true);
+        Assert.Equal(0.5, e.Carregamento, 6);
+        for (int i = 0; i < 6; i++) e.Atualizar(dt, false, false, false, true, true, true);
+        Assert.Equal(1, e.Carregamento, 6);
+        for (int i = 0; i < 10; i++) e.Atualizar(dt, false, false, false, true, true, false);
+        Assert.Equal(0.5, e.Carregamento, 6);
+        for (int i = 0; i < 10; i++) e.Atualizar(dt, false, false, false, true, true, false);
+        Assert.Equal(0, e.Carregamento, 6);
+    }
+
+    [Fact]
+    public void AnguloCarregamento_Avanca360PorSegundoEVoltaA0()
+    {
+        var e = new EstadoAnel();
+        e.Atualizar(0.5, false, false, false, true, true, true);
+        Assert.Equal(180, e.AnguloCarregamento, 6);
+        e.Atualizar(0.75, false, false, false, true, true, true);
+        Assert.Equal(90, e.AnguloCarregamento, 6); // 180 + 270 = 450 -> 90
+        Assert.InRange(e.AnguloCarregamento, 0, 360);
+    }
+
+    [Fact]
+    public void SemCarregar_CarregamentoFicaEm0_EMouseParadoNaoApagaMarcacao()
+    {
+        var e = new EstadoAnel();
+        Rodar(e, 1, false, false, false);
+        Assert.Equal(0, e.Carregamento);
+        // Mouse parado por muito tempo (anel apaga) com carregando: a marcação segue em 1.
+        e.Configurar(26, 1, 0.3, true);
+        for (int i = 0; i < 300; i++) e.Atualizar(Dt, false, false, false, true, true, true);
+        Assert.Equal(1, e.Carregamento, 6);
+        Assert.True(e.Opacidade < 1);
+    }
 }
+
 
 public class EstadoAnelOpacidadeLinksTests
 {
